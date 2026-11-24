@@ -10,6 +10,7 @@ import { log } from './logger.js';
 import { ApiError, errorBody, notFound } from './errors.js';
 import { healthRouter } from './routes/health.js';
 import { cors } from './http/cors.js';
+import { createRateLimit } from './http/rate-limit.js';
 import { securityHeaders } from './http/security.js';
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{8,64}$/;
@@ -23,7 +24,16 @@ const JSON_BODY_LIMIT_BYTES = 100 * 1024;
 // still available when a probe is what you are investigating.
 const PROBE_PATHS = new Set(['/healthz', '/readyz']);
 
-export function createApp({ auth = null, catalogue = null, staticDir = null, allowedOrigins = config.corsOrigins } = {}) {
+export function createApp({
+  auth = null,
+  catalogue = null,
+  admin = null,
+  staticDir = null,
+  allowedOrigins = config.corsOrigins,
+  // Tests pass their own limiter so a suite can use a limit of three instead of
+  // sixty, and so the window can be short.
+  rateLimit = null,
+} = {}) {
   const app = express();
 
   // Behind an ALB the client address arrives in X-Forwarded-For; without this
@@ -68,6 +78,20 @@ export function createApp({ auth = null, catalogue = null, staticDir = null, all
     next();
   });
 
+  // Rate limiting sits before the body parsers on purpose: a client that is over
+  // its budget should be refused before the process allocates anything for it.
+  // Probes are exempt — the load balancer calls them every 15 seconds and a 429
+  // there would take the task out of rotation for being asked whether it is alive.
+  app.use(
+    rateLimit ??
+      createRateLimit({
+        windowMs: config.rateLimitWindowMs,
+        max: config.rateLimitMax,
+        skip: (req) => PROBE_PATHS.has(req.path),
+        log,
+      }),
+  );
+
   // JSON bodies only, and small. The limit is a control, not a convenience:
   // it bounds the memory a single request can make the process allocate.
   // Routes that need a different limit (the CSV import) set their own parser.
@@ -85,6 +109,11 @@ export function createApp({ auth = null, catalogue = null, staticDir = null, all
   // The catalogue, likewise composed outside this file. It needs auth's guards,
   // which is why it is built after auth in `server.js` and passed in ready-made.
   if (catalogue) app.use(catalogue.router);
+
+  // Admin endpoints (user list, role changes) are their own module for the same
+  // reason: they are a different responsibility from signing in or owning the
+  // catalogue, and they reuse auth's guards rather than re-implementing them.
+  if (admin) app.use(admin.router);
 
   // The frontend, when it is served from this origin — which is the deployment
   // shape the contract assumes, because the refresh cookie is `SameSite=Strict`

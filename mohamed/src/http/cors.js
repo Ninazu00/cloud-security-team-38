@@ -18,7 +18,16 @@ export function cors({ origins = [] } = {}) {
     if (!origin) return next();
 
     res.setHeader('Vary', 'Origin');
-    if (!allowed.has(origin)) return next();
+
+    if (!allowed.has(origin)) {
+      // A preflight from an origin we do not trust gets an empty 204 rather than a
+      // 404: the browser refuses the request either way, because no
+      // `Access-Control-Allow-Origin` came back — but a 404 would also tell the
+      // caller which routes exist, which is a free map of the API for anyone who
+      // asks. Nothing else about the response is revealed.
+      if (req.method === 'OPTIONS') return res.status(204).end();
+      return next();
+    }
 
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');

@@ -5,6 +5,7 @@ import { createPublicKey, generateKeyPairSync, randomUUID } from 'node:crypto';
 import pg from 'pg';
 
 import { createApp } from '../src/app.js';
+import { noRateLimit } from './no-rate-limit.js';
 import { createAuthMiddleware } from '../src/auth/middleware.js';
 import { createAuthRouter } from '../src/routes/auth.js';
 import { createAuthController } from '../src/controllers/auth.controller.js';
@@ -130,6 +131,7 @@ before(async () => {
     sessions,
     tokens,
     verifyTurnstile: async () => turnstileOk,
+    withTransaction,
   });
 
   const auth = {
@@ -140,7 +142,7 @@ before(async () => {
     }),
   };
 
-  const app = createApp({ auth });
+  const app = createApp({ auth, rateLimit: noRateLimit });
   server = app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;

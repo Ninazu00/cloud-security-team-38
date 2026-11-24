@@ -5,6 +5,7 @@ import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import pg from 'pg';
 
 import { createApp } from '../src/app.js';
+import { noRateLimit } from './no-rate-limit.js';
 import { buildCatalogue } from '../src/catalogue/index.js';
 import { createAuthMiddleware } from '../src/auth/middleware.js';
 import { createTokenService } from '../src/auth/tokens.js';
@@ -143,7 +144,7 @@ before(async () => {
   adminToken = await createUser('admin');
   studentToken = await createUser('student');
 
-  const app = createApp({ catalogue });
+  const app = createApp({ catalogue, rateLimit: noRateLimit });
   server = app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;

@@ -153,6 +153,35 @@ export function createUsersModel({ query, withTransaction, now = () => Date.now(
   }
 
   /**
+   * One operation, not two: the new password and the end of every session must
+   * land together. Splitting them would allow the state where the password is
+   * new and the old sessions are still alive, which is the worst of both.
+   *
+   * A verified mailbox is implied: whoever spent the reset link controls the
+   * address, which is the same proof that a verification link gives.
+   */
+  async function resetPassword(client, { userId, passwordHash, at }) {
+    const { rows } = await client.query(
+      `update users
+          set password_hash = $2,
+              email_verified_at = coalesce(email_verified_at, $3),
+              updated_at = $3
+        where id = $1
+        returning id, email`,
+      [userId, passwordHash, at],
+    );
+
+    if (rows.length === 0) return null;
+
+    await client.query(
+      'update sessions set revoked_at = $2 where user_id = $1 and revoked_at is null',
+      [userId, at],
+    );
+
+    return rows[0];
+  }
+
+  /**
    * Used by the seed script: create an account that can log in immediately.
    * Idempotent on the email, so re-running the seed does not create duplicates.
    */
@@ -170,6 +199,106 @@ export function createUsersModel({ query, withTransaction, now = () => Date.now(
     return toUser(rows[0]);
   }
 
+  /**
+   * One page of accounts, newest first, for the admin screen.
+   *
+   * Keyset again rather than offset: the users table grows while an admin pages
+   * through it, and an offset would repeat or skip rows as that happens.
+   *
+   * Only the six columns the contract publishes are selected. A hash that is never
+   * read cannot be leaked by a later `...user` somewhere above this layer.
+   */
+  async function list({ limit, cursor = null, role = null, q = null }) {
+    const where = [];
+    const values = [];
+
+    if (role) {
+      values.push(role);
+      where.push(`role = $${values.length}`);
+    }
+
+    if (q) {
+      values.push(`%${q}%`);
+      where.push(`email ilike $${values.length}`);
+    }
+
+    if (cursor) {
+      values.push(cursor.createdAt, cursor.id);
+      where.push(`(created_at, id) < ($${values.length - 1}, $${values.length})`);
+    }
+
+    values.push(limit + 1);
+
+    const { rows } = await query(
+      `select id, email, role, created_at, email_verified_at, locked_until
+         from users
+        ${where.length ? `where ${where.join(' and ')}` : ''}
+        order by created_at desc, id desc
+        limit $${values.length}`,
+      values,
+    );
+
+    return rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      role: row.role,
+      createdAt: row.created_at,
+      emailVerifiedAt: row.email_verified_at,
+      lockedUntil: row.locked_until,
+    }));
+  }
+
+  /**
+   * Change a role, or refuse. Both refusals are decided here rather than in the
+   * service because they are facts about the table: the account exists, and the
+   * system keeps at least one admin.
+   *
+   * Returns a result object instead of throwing, so the layer that owns HTTP keeps
+   * owning the status codes.
+   */
+  async function setRole(client, { id, role, at = new Date() }) {
+    const { rows } = await client.query(
+      'select id, email, role from users where id = $1 for update',
+      [id],
+    );
+
+    const target = rows[0];
+    if (!target) return { ok: false, reason: 'not_found' };
+
+    if (target.role === role) {
+      return { ok: true, user: { id: target.id, email: target.email, role, updatedAt: at } };
+    }
+
+    if (target.role === 'admin' && role !== 'admin') {
+      // Count the *other* admins while holding the target's row. Without the lock
+      // two demotions could each see one remaining admin and both proceed.
+      const admins = await client.query(
+        `select id from users where role = 'admin' and id <> $1 for update`,
+        [id],
+      );
+      if (admins.rowCount === 0) return { ok: false, reason: 'last_admin' };
+    }
+
+    const updated = await client.query(
+      `update users set role = $2, updated_at = $3 where id = $1
+        returning id, email, role, updated_at`,
+      [id, role, at],
+    );
+
+    // A demoted admin holds an `admin` claim for up to two hours; revoking the
+    // sessions makes the change immediate rather than eventual.
+    await client.query(
+      'update sessions set revoked_at = $2 where user_id = $1 and revoked_at is null',
+      [id, at],
+    );
+
+    const row = updated.rows[0];
+    return {
+      ok: true,
+      user: { id: row.id, email: row.email, role: row.role, updatedAt: row.updated_at },
+    };
+  }
+
   return {
     findByEmail,
     findById,
@@ -178,6 +307,9 @@ export function createUsersModel({ query, withTransaction, now = () => Date.now(
     recordFailedAttempt,
     clearFailures,
     setPasswordHash,
+    resetPassword,
     createVerified,
+    list,
+    setRole,
   };
 }

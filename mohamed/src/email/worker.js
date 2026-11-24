@@ -1,4 +1,4 @@
-import { passwordChangedEmail, verificationEmail } from './templates.js';
+import { passwordChangedEmail, passwordResetEmail, verificationEmail } from './templates.js';
 
 /**
  * Drains `email_outbox` inside the web process.
@@ -20,6 +20,7 @@ export function createOutboxWorker({
   log = null,
   batchSize = 10,
   verifyTtlSeconds = 24 * 60 * 60,
+  resetTtlSeconds = 30 * 60,
 } = {}) {
   if (typeof outbox?.claim !== 'function') throw new Error('createOutboxWorker needs outbox.');
   if (typeof send !== 'function') throw new Error('createOutboxWorker needs send().');
@@ -39,6 +40,19 @@ export function createOutboxWorker({
         url.searchParams.set('token', token);
 
         return verificationEmail({ verifyUrl: url.toString(), expiresInHours: 24 });
+      }
+
+      case 'password_reset': {
+        const token = await issueToken({
+          userId: job.payload.userId,
+          purpose: 'password_reset',
+          ttlSeconds: resetTtlSeconds,
+        });
+
+        const url = new URL('/reset-password.html', publicBaseUrl);
+        url.searchParams.set('token', token);
+
+        return passwordResetEmail({ resetUrl: url.toString(), expiresInMinutes: 30 });
       }
 
       case 'password_changed':

@@ -80,8 +80,10 @@ export async function buildAuth({ query, withTransaction, config, log, turnstile
     outbox,
     actionTokens,
     verifyTurnstile,
+    withTransaction,
     log,
     resendLimitPerHour: config.resendLimitPerHour,
+    resetLimitPerHour: config.resetLimitPerHour,
   });
   const middleware = createAuthMiddleware({ tokens, users });
   const controller = createAuthController({ auth: service, tokens });
@@ -97,6 +99,7 @@ export async function buildAuth({ query, withTransaction, config, log, turnstile
     keystore,
     outbox,
     actionTokens,
+    users,
     source: keystore.source,
   };
 }

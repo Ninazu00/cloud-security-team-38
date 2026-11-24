@@ -95,10 +95,20 @@ export const config = Object.freeze({
   // per hour and lives here so a test can lower it instead of sending four mails.
   resendLimitPerHour: integer('RESEND_LIMIT_PER_HOUR', 3),
 
+  // Same idea for reset links: a forgotten password is a legitimate reason to ask
+  // twice, never an hour long.
+  resetLimitPerHour: integer('RESET_LIMIT_PER_HOUR', 3),
+
   // The drainer is on by default. Tests turn it off and call `runOnce` themselves,
   // so an assertion is never racing a background timer.
   mailerEnabled: optional('MAILER_ENABLED', 'true') !== 'false',
   mailerIntervalMs: integer('MAILER_INTERVAL_MS', 2000),
+
+  // --- request rate limiting ------------------------------------------------
+  // Per task, not per deployment: four tasks allow four times this. Raising it to
+  // 100000 is what the load-test notes do, because a k6 run is one client.
+  rateLimitWindowMs: integer('RATE_LIMIT_WINDOW_MS', 60_000),
+  rateLimitMax: integer('RATE_LIMIT_MAX', 60),
 
   awsRegion: optional('AWS_REGION', 'us-east-1'),
   awsEndpointUrl: optional('AWS_ENDPOINT_URL', null),

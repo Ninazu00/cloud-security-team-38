@@ -154,6 +154,14 @@ export const api = {
       method: 'POST',
       body: { email, turnstileToken },
     }),
+  requestPasswordReset: (email, turnstileToken) =>
+    raw('/api/auth/password-reset/request', { method: 'POST', body: { email, turnstileToken } }),
+  confirmPasswordReset: (token, newPassword) =>
+    raw('/api/auth/password-reset/confirm', { method: 'POST', body: { token, newPassword } }),
+
+  // --- administration -----------------------------------------------------
+  listUsers: (params) => request(withQuery('/api/admin/users', params)),
+  setUserRole: (id, role) => request(`/api/admin/users/${id}/role`, { method: 'PATCH', body: { role } }),
 
   // --- courses ------------------------------------------------------------
   listCourses: (params) => request(withQuery('/api/courses', params)),

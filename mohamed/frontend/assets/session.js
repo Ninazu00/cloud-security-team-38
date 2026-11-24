@@ -61,6 +61,7 @@ function mountTopbar(active) {
   const links = [
     { href: 'courses.html', label: 'Courses', key: 'courses' },
     ...(isAdmin() ? [{ href: 'imports.html', label: 'Imports', key: 'imports' }] : []),
+    ...(isAdmin() ? [{ href: 'admin.html', label: 'Accounts', key: 'admin' }] : []),
   ];
 
   fill(

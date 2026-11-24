@@ -5,6 +5,7 @@
 import { fileURLToPath } from 'node:url';
 
 import { createApp } from './app.js';
+import { buildAdmin } from './admin/index.js';
 import { buildAuth } from './auth/index.js';
 import { buildCatalogue } from './catalogue/index.js';
 import { config } from './config.js';
@@ -30,13 +31,17 @@ try {
 // authentication changes.
 const catalogue = buildCatalogue({ query, withTransaction, middleware: auth.middleware, log });
 
+// Admin needs the same guards and reuses the users model auth already built, so
+// there is one instance reading that table.
+const admin = buildAdmin({ withTransaction, middleware: auth.middleware, users: auth.users });
+
 // The frontend ships in the image beside `src/`, so one task serves both the API
 // and the pages. That is not laziness: the refresh cookie is `SameSite=Strict`,
 // and same-origin is the only shape where a browser will store and return it
 // without also needing CSRF protection.
 const frontendDir = fileURLToPath(new URL('../frontend', import.meta.url));
 
-const app = createApp({ auth, catalogue, staticDir: frontendDir });
+const app = createApp({ auth, catalogue, admin, staticDir: frontendDir });
 
 const server = app.listen(config.port, () => {
   log.info({ msg: 'listening', port: config.port, env: config.nodeEnv });

@@ -37,14 +37,20 @@ aws --endpoint-url="$ENDPOINT_URL" s3 sync "${FRONTEND_DIR}/" "s3://${S3_BUCKET}
   --exclude "node_modules/*" \
   --exclude "*.css" \
   --exclude "*.js" \
+  --exclude "*.svg" \
   --content-type "text/html; charset=utf-8"
 
-echo "3. Syncing CSS files (text/css)..."
+echo "3. Syncing SVG files (image/svg+xml)..."
+aws --endpoint-url="$ENDPOINT_URL" s3 sync "${FRONTEND_DIR}/" "s3://${S3_BUCKET}/" \
+  --exclude "*" --include "*.svg" \
+  --content-type "image/svg+xml"
+
+echo "4. Syncing CSS files (text/css)..."
 aws --endpoint-url="$ENDPOINT_URL" s3 sync "${FRONTEND_DIR}/css/" "s3://${S3_BUCKET}/css/" \
   --exclude "*" --include "*.css" \
   --content-type "text/css"
 
-echo "4. Syncing JS files (text/javascript)..."
+echo "5. Syncing JS files (text/javascript)..."
 aws --endpoint-url="$ENDPOINT_URL" s3 sync "${FRONTEND_DIR}/js/" "s3://${S3_BUCKET}/js/" \
   --exclude "*" --include "*.js" \
   --content-type "text/javascript"

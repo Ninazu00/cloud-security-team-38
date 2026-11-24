@@ -2,9 +2,14 @@
 // cleanly, never leave the process in a state where the platform's SIGTERM was
 // ignored.
 
+import { fileURLToPath } from 'node:url';
+
 import { createApp } from './app.js';
 import { buildAuth } from './auth/index.js';
+import { buildCatalogue } from './catalogue/index.js';
 import { config } from './config.js';
+import { createSesSender } from './email/sender.js';
+import { createOutboxWorker } from './email/worker.js';
 import { log } from './logger.js';
 import { closePool, ping, query, withTransaction } from './db.js';
 
@@ -20,11 +25,44 @@ try {
   process.exit(1);
 }
 
-const app = createApp({ auth });
+// Built after auth because the course routes borrow its guards: a catalogue
+// that imported them directly would be a second place to remember whenever
+// authentication changes.
+const catalogue = buildCatalogue({ query, withTransaction, middleware: auth.middleware, log });
+
+// The frontend ships in the image beside `src/`, so one task serves both the API
+// and the pages. That is not laziness: the refresh cookie is `SameSite=Strict`,
+// and same-origin is the only shape where a browser will store and return it
+// without also needing CSRF protection.
+const frontendDir = fileURLToPath(new URL('../frontend', import.meta.url));
+
+const app = createApp({ auth, catalogue, staticDir: frontendDir });
 
 const server = app.listen(config.port, () => {
   log.info({ msg: 'listening', port: config.port, env: config.nodeEnv });
 });
+
+// Mail drains in this same process, started after the socket opens: a mail loop
+// that runs before the server can answer is a loop whose first failure nobody
+// sees. `unref` inside the worker means an idle timer never blocks shutdown.
+let stopMailer = null;
+if (config.mailerEnabled) {
+  const worker = createOutboxWorker({
+    outbox: auth.outbox,
+    send: createSesSender({
+      region: config.awsRegion,
+      endpoint: config.awsEndpointUrl,
+      fromAddress: config.mailFrom,
+      testCredentials: Boolean(config.awsEndpointUrl) && config.nodeEnv !== 'production',
+    }),
+    issueToken: auth.actionTokens.issue,
+    publicBaseUrl: config.publicBaseUrl,
+    log,
+  });
+
+  stopMailer = worker.start({ intervalMs: config.mailerIntervalMs });
+  log.info({ msg: 'mailer started', from: config.mailFrom, intervalMs: config.mailerIntervalMs });
+}
 
 // First contact with the database, logged but not fatal: a task that starts
 // before the database is reachable should come up and report not-ready, which
@@ -40,6 +78,10 @@ async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   log.info({ msg: 'shutdown started', signal });
+
+  // The mailer stops claiming new rows immediately; a mail already in flight is
+  // allowed to finish inside the grace period.
+  stopMailer?.();
 
   // Stop accepting new connections, then wait for in-flight requests. The
   // grace period must be shorter than the platform's kill timeout, otherwise

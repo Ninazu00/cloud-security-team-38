@@ -201,7 +201,7 @@ export async function getTimetableById(req, res, next) {
       return sendError(res, 404, "TIMETABLE_NOT_FOUND", "Timetable not found.");
     }
     const hydrated = await hydrateTimetable(record, req.authHeader);
-    return res.status(200).json(hydrated);
+    return res.status(200).json({ ...hydrated, ownerId: record.studentId || req.user.id });
   } catch (err) {
     return next(err);
   }

@@ -12,7 +12,26 @@ process.env.NODE_ENV = "test";
 process.env.DEP_MODE = "mock";
 process.env.DISABLE_CW_LOGS = "true";
 
-const privKey = fs.readFileSync(path.join(process.cwd(), "local-private.pem"), "utf8");
+const privPath = path.join(process.cwd(), "local-private.pem");
+const pubPath = path.join(process.cwd(), "local-public.pem");
+let generatedTestKeys = false;
+if (!fs.existsSync(privPath) || !fs.existsSync(pubPath)) {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: "spki", format: "pem" },
+    privateKeyEncoding: { type: "pkcs8", format: "pem" }
+  });
+  fs.writeFileSync(privPath, privateKey, { mode: 0o600 });
+  fs.writeFileSync(pubPath, publicKey);
+  generatedTestKeys = true;
+}
+after(() => {
+  if (generatedTestKeys) {
+    fs.rmSync(privPath, { force: true });
+    fs.rmSync(pubPath, { force: true });
+  }
+});
+const privKey = fs.readFileSync(privPath, "utf8");
 const mint = (sub, role = "student", expiresIn = "2h") =>
   jwt.sign({ sub, role }, privKey, { algorithm: "RS256", expiresIn });
 

@@ -1,0 +1,279 @@
+{
+  "info": {
+    "name": "Timetable Service API (Group 38 - Yehia Mohamed)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://56740348ff.execute-api.localhost.floci.io:4566"
+    },
+    {
+      "key": "studentToken",
+      "value": ""
+    },
+    {
+      "key": "otherStudentToken",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "timetableId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01. Health (Admin -> 200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/health"
+      }
+    },
+    {
+      "name": "02. Health (Student -> 403)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/health"
+      }
+    },
+    {
+      "name": "03. List Timetables (No Token -> 401)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/timetables"
+      }
+    },
+    {
+      "name": "04. Check Clashes (Overlap -> 200)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables/check",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sectionIds\":[\"101\",\"201\"]}"
+        }
+      }
+    },
+    {
+      "name": "05. Generate Valid Timetables (200)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables/generate",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"courseIds\":[\"1\",\"2\",\"3\"]}"
+        }
+      }
+    },
+    {
+      "name": "06. Generate Conflict Explanation (422)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables/generate",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"courseIds\":[\"1\",\"4\"]}"
+        }
+      }
+    },
+    {
+      "name": "07. Generate >8 Courses Limit (400)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables/generate",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"courseIds\":[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\"]}"
+        }
+      }
+    },
+    {
+      "name": "08. Save Timetable (201 + stores timetableId)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Fall 2026 Plan A\",\"sectionIds\":[\"101\",\"103\",\"202\",\"203\",\"301\"]}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const d = pm.response.json(); if (d.id) pm.collectionVariables.set(\"timetableId\", d.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Non-JSON Content-Type (415)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "text/plain"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables/check",
+        "body": {
+          "mode": "raw",
+          "raw": "sectionIds=101"
+        }
+      }
+    },
+    {
+      "name": "10. List Own Timetables (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables"
+      }
+    },
+    {
+      "name": "11. Get Own Timetable (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables/{{timetableId}}"
+      }
+    },
+    {
+      "name": "12. IDOR: Other Student Get (404)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{otherStudentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables/{{timetableId}}"
+      }
+    },
+    {
+      "name": "13. Export Calendar .ics (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables/{{timetableId}}/calendar.ics"
+      }
+    },
+    {
+      "name": "14. IDOR: Other Student Delete (404)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{otherStudentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables/{{timetableId}}"
+      }
+    },
+    {
+      "name": "15. Delete Own Timetable (204)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{studentToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/timetables/{{timetableId}}"
+      }
+    }
+  ]
+}

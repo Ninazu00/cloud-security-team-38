@@ -58,10 +58,12 @@ ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 
 BUILD=1
 TEARDOWN=0
+FORCE=0
 for arg in "$@"; do
   case "$arg" in
     --no-build) BUILD=0 ;;
     --teardown) TEARDOWN=1 ;;
+    --force) FORCE=1 ;;
     -h|--help) sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
@@ -303,12 +305,27 @@ ensure_service() {
       --desired-count 1 --launch-type FARGATE --network-configuration "$network" \
       --load-balancers "targetGroupArn=$tg_arn,containerName=$CONTAINER,containerPort=$APP_PORT" \
       --region "$REGION" --output text >/dev/null
-  else
-    # Roll to the newest task definition so a redeploy picks up a new image.
-    aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --task-definition "$FAMILY" \
-      --desired-count 1 --force-new-deployment --region "$REGION" --output text >/dev/null
+    note "service $SERVICE created, desired=1"
+    return 0
   fi
-  note "service $SERVICE desired=1"
+
+  # Only roll when the image really changed. A forced redeploy on every run replaces
+  # the task, and while the new one boots the load balancer still points at the old
+  # address — which is exactly the "bad gateway" a second run used to produce.
+  local running_def running_image
+  running_def=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" --region "$REGION" \
+    --query 'services[0].taskDefinition' --output text)
+  running_image=$(aws ecs describe-task-definition --task-definition "$running_def" --region "$REGION" \
+    --query 'taskDefinition.containerDefinitions[0].image' --output text)
+
+  if [ "$running_image" = "$IMAGE" ] && [ "$FORCE" != 1 ]; then
+    note "service $SERVICE already runs $IMAGE (use --force to redeploy)"
+    return 0
+  fi
+
+  aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --task-definition "$FAMILY" \
+    --desired-count 1 --force-new-deployment --region "$REGION" --output text >/dev/null
+  note "service $SERVICE rolling to a new task"
 }
 
 # Autoscaling is a policy on the service, not a service of its own. The policy is

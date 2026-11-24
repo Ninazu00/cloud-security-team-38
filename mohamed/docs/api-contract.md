@@ -3,7 +3,7 @@
 **Owner:** Mohamed Ayman — 239236
 **Callers:** Yehia (Timetable), Mohab (Compare & Share), my frontend
 **Base URL:** `http://localhost:8080` on floci locally; the deployed URL goes out at hand-off
-**Version:** **1.5 — FINAL**, agreed 24 Nov 2026 (1.5 is a wording amendment to the refresh grace window; not a wire change). Supersedes 1.0–1.4 (changelog at the end).
+**Version:** **1.8 — FINAL**, agreed 24 Nov 2026 (1.8 makes the import list reject an unknown `status` with `422`; 1.7 listed `422 VALIDATION_FAILED` in the shared error table; 1.6 removed internal spaces from course codes; 1.5 amended the refresh grace wording). Supersedes 1.0–1.7 (changelog at the end).
 
 This document says each endpoint's input and output. Nothing else.
 
@@ -36,7 +36,7 @@ Everything below this section is detail. This section is the shape of the thing.
 | **refresh token** (opaque) | `__Secure-refresh` cookie | 7 days | logout, reuse, role change, password reset |
 | **action token** (opaque) | in an email link | 24 h (verify) / 30 min (reset) | used once, or a newer one issued |
 
-**The five rules that make this more than CRUD.** Each is a rejection the database guarantees, not a button hidden in a form:
+**The five rules that make this more than CRUD.** Each is a rejection enforced in the service against the database — a lock, a unique index or a transaction — not a button hidden in a form. Three of the five are also enforced by a constraint the database itself holds (the import hash, the live section code, the role values); the room rule cannot be, because the conflicting row does not exist yet, which is exactly why it takes an advisory lock.
 
 1. **A room cannot be double-booked** — overlapping `[start, end)` blocks in the same room are `409 ROOM_CONFLICT`, enforced under an advisory lock inside the transaction.
 2. **A CSV import is all or nothing** — 5,000 rows validated in memory, then one transaction; a single bad row imports nothing and returns every row error.
@@ -82,7 +82,8 @@ Clients branch on `code`. `message` may change between releases; `code` may not.
 
 | status | code | when |
 |---|---|---|
-| 400 | `VALIDATION_FAILED` | malformed body, query or path; `details.fields` names the offenders |
+| 400 | `VALIDATION_FAILED` | the request could not be read as the right shape: malformed JSON, wrong type, missing required field, bad path parameter |
+| 422 | `VALIDATION_FAILED` | the body parsed, but a value breaks a rule (`credits` out of range, a code that is not a code, a password too short); `details.field` or `details.fields` names the offender |
 | 401 | `UNAUTHENTICATED` | token missing, malformed, expired or unverifiable |
 | 403 | `FORBIDDEN` | token valid, but the caller's role may not do this |
 | 429 | `RATE_LIMITED` | 60 requests/min per IP (`/healthz` and `/readyz` exempt); `details.retryAfterSeconds` |
@@ -352,7 +353,7 @@ A course is `{ id, code, title, credits }` and it can be **archived**. The `code
 | field | type | notes |
 |---|---|---|
 | `id` | uuid | stable forever; ids are never reused |
-| `code` | string | unique, upper-case, 2–20 chars, letters/digits/space/dash |
+| `code` | string | unique, upper-case, **no spaces**, 2–20 chars, letters/digits/dash/underscore |
 | `title` | string | 1–200 chars |
 | `credits` | integer | 0–30 |
 | `sectionCount` | integer | how many **active** sections reference it |
@@ -409,7 +410,7 @@ Admin only.
 
 | where | field | type | rules |
 |---|---|---|---|
-| body | `code` | string | required; trimmed, upper-cased, `^[A-Za-z0-9][A-Za-z0-9 _-]*$`, 2–20 chars |
+| body | `code` | string | required; upper-cased and **internal spaces removed** before storing, so `CS 210` and `CS210` are the same course; 2–20 chars, letters/digits/dash/underscore |
 | body | `title` | string | required; trimmed, 1–200 chars |
 | body | `credits` | integer | required; 0–30 |
 
@@ -804,6 +805,12 @@ Admin only. History, newest first.
 }
 ```
 
+**Errors**
+
+| status | code | when |
+|---|---|---|
+| 422 | `VALIDATION_FAILED` | `status` is present but is not `committed` or `failed` (`details.field: "status"`) |
+
 ## GET `/api/imports/{id}`
 
 Admin only. One import, including its report.
@@ -1044,5 +1051,8 @@ The document is final as of v1.4. Anything after this is a new version with a ro
 | 1.3 | 24 Nov 2026 | **added §7 email verification and §8 password reset** (23 → 27 endpoints); resend made public; `INVALID_TOKEN` unified; seeded accounts pre-verified |
 | **1.4** | **24 Nov 2026** | **FINAL.** Added the "At a glance" section and this log; eight groups marked agreed; MFA recorded as deferred. No endpoint, field or status code changed from 1.3 |
 | 1.5 | 24 Nov 2026 | the refresh grace window now says *a* successor rather than *the same* successor: the server keeps only a hash, so a second child of the same parent is issued. No request, response or status code changes — the client behaviour on the wire is identical |
+| 1.6 | 24 Nov 2026 | course codes are stored with **internal spaces removed** (`CS 210` → `CS210`), so a spaced and an unspaced spelling are one course rather than two duplicates. Applies to `POST`/`PATCH /api/courses` and to the `course_code` column of the CSV import. No new status codes: a collision is still `409 DUPLICATE_CODE` |
+| 1.8 | 24 Nov 2026 | `GET /api/imports` now documents its one filter error: an unknown `status` answers **`422 VALIDATION_FAILED`** with `details.field: "status"` (it answered 400 before, which the contract never mentioned). No other route, field or status code changes |
+| 1.7 | 24 Nov 2026 | the shared error table now lists **`422 VALIDATION_FAILED`** for a body that parses but breaks a rule, alongside the existing `400` for one that cannot be read at all. The implementation already answered 422 (courses, password policy, imports); the contract simply never said so. No route, field or status code changes for any existing client |
 
 **What 1.4 does not change.** Not one route, field, header or error code. It is a readability release on top of an agreed specification, which is why it can be called final without asking anyone to re-read the detail.

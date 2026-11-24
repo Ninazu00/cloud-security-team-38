@@ -74,6 +74,32 @@ export const config = Object.freeze({
   // local stack uses Cloudflare's "always passes" test secret.
   turnstileSecret: optional('TURNSTILE_SECRET', null),
 
+  // Empty by default: the frontend is served from this same origin. If it is ever
+  // hosted elsewhere, name the exact origins — the refresh cookie is credentialed,
+  // so a wildcard is both unsafe and rejected by browsers.
+  corsOrigins: optional('CORS_ORIGINS', '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+
+  // --- outgoing mail --------------------------------------------------------
+  // The From address must be a verified identity in SES, which is why the runbook
+  // verifies it before the first sign-up rather than letting the first send fail.
+  mailFrom: optional('MAIL_FROM', 'noreply@class-tt.local'),
+
+  // Used to build the verification link. It must be the address a *user* can
+  // reach, not the address the process can reach: on floci the two differ.
+  publicBaseUrl: optional('PUBLIC_BASE_URL', 'http://localhost:3000'),
+
+  // Two sends per sign-up are normal (register, resend); the cap is per account
+  // per hour and lives here so a test can lower it instead of sending four mails.
+  resendLimitPerHour: integer('RESEND_LIMIT_PER_HOUR', 3),
+
+  // The drainer is on by default. Tests turn it off and call `runOnce` themselves,
+  // so an assertion is never racing a background timer.
+  mailerEnabled: optional('MAILER_ENABLED', 'true') !== 'false',
+  mailerIntervalMs: integer('MAILER_INTERVAL_MS', 2000),
+
   awsRegion: optional('AWS_REGION', 'us-east-1'),
   awsEndpointUrl: optional('AWS_ENDPOINT_URL', null),
 

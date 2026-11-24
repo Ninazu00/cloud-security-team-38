@@ -37,20 +37,25 @@ export function createOutbox({ query }) {
    * Take up to `limit` due mails for this worker. The `update … returning`
    * shape both claims and counts the attempt, and `skip locked` lets a second
    * worker pass over rows this one is already sending.
+   *
+   * `toEmailLike` exists for the test suite, which runs several files in parallel
+   * against one database: each file drains only its own addresses, so a worker in
+   * one file cannot swallow another's mail. Production passes nothing.
    */
-  async function claim(limit = 10) {
+  async function claim(limit = 10, { toEmailLike = null } = {}) {
     const { rows } = await query(
       `update email_outbox
           set attempts = attempts + 1
         where id in (
           select id from email_outbox
            where sent_at is null and failed_at is null and next_attempt_at <= now()
+             and ($2::text is null or to_email like $2)
            order by next_attempt_at
            limit $1
            for update skip locked
         )
         returning id, to_email, template_key, payload, attempts`,
-      [limit],
+      [limit, toEmailLike],
     );
 
     return rows.map((row) => ({
@@ -83,6 +88,24 @@ export function createOutbox({ query }) {
     );
   }
 
+  /**
+   * How many mails of this kind were *asked for* since `sinceMs`.
+   *
+   * The count belongs here, not in `auth_tokens`: a token is minted when the mail
+   * is sent, so counting tokens would count deliveries and let a user request a
+   * hundred mails while the worker was busy. The request is the thing being
+   * limited.
+   */
+  async function countSince({ toEmail, templateKey, sinceMs }) {
+    const { rows } = await query(
+      `select count(*)::int as count
+         from email_outbox
+        where to_email = $1 and template_key = $2 and created_at >= $3`,
+      [toEmail, templateKey, new Date(sinceMs)],
+    );
+    return rows[0]?.count ?? 0;
+  }
+
   /** Counts for tests and the health story: how much mail is waiting. */
   async function stats() {
     const { rows } = await query(
@@ -94,5 +117,5 @@ export function createOutbox({ query }) {
     return rows[0] ?? { pending: 0, sent: 0, failed: 0 };
   }
 
-  return { enqueue, claim, markSent, markFailed, stats, MAX_ATTEMPTS };
+  return { enqueue, claim, markSent, markFailed, countSince, stats, MAX_ATTEMPTS };
 }

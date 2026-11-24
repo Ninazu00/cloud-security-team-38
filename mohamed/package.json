@@ -1,0 +1,22 @@
+{
+  "name": "class-tt-catalogue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Catalogue and identity service for the Class Timetable Builder (Group 38)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "dev": "node --env-file-if-exists=.env --watch src/server.js",
+    "test": "node --env-file-if-exists=.env --test",
+    "probe:timeouts": "node --env-file-if-exists=.env scripts/probe-timeouts.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-kms": "^3.1176.0",
+    "@aws-sdk/client-secrets-manager": "^3.1176.0",
+    "express": "^5.1.0",
+    "pg": "^8.13.1"
+  }
+}

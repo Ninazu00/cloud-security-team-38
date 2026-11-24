@@ -1,0 +1,17 @@
+# Keep the build context small and, more importantly, keep secrets and local
+# artefacts out of the image. A .env baked into a layer is readable by anyone
+# who can pull the image.
+node_modules
+npm-debug.log*
+
+.env
+.env.*
+!.env.example
+
+tests
+docs
+coverage
+.git
+.gitignore
+*.md
+!README.md

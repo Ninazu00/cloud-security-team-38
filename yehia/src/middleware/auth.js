@@ -1,37 +1,63 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import jwt from "jsonwebtoken";
 import { logEvent } from "./logger.js";
 
-let cachedPublicKey = null;
+const cachedKeys = new Map();
+let cachedDefaultKey = null;
 
-async function getPublicKey() {
-  if (cachedPublicKey) return cachedPublicKey;
+function resolveJwksUrl() {
+  if (process.env.CATALOGUE_JWKS_URL) return process.env.CATALOGUE_JWKS_URL;
+  if (process.env.CATALOGUE_PUBLIC_KEY_URL) return process.env.CATALOGUE_PUBLIC_KEY_URL;
+  const baseUrl = (process.env.CATALOGUE_URL || "http://127.0.0.1:3001").replace(/\/$/, "");
+  return `${baseUrl}/.well-known/jwks.json`;
+}
 
+async function getPublicKey(kid) {
   if ((process.env.DEP_MODE || "mock") === "mock") {
+    if (cachedDefaultKey) return cachedDefaultKey;
     const pubPath = path.join(process.cwd(), "local-public.pem");
     if (!fs.existsSync(pubPath)) {
       throw new Error("local-public.pem not found. Run: node scripts/mint-token.js");
     }
-    cachedPublicKey = fs.readFileSync(pubPath, "utf8");
-    return cachedPublicKey;
+    cachedDefaultKey = fs.readFileSync(pubPath, "utf8");
+    return cachedDefaultKey;
   }
 
-  const url = process.env.CATALOGUE_PUBLIC_KEY_URL;
+  if (kid && cachedKeys.has(kid)) return cachedKeys.get(kid);
+  if (!kid && cachedDefaultKey) return cachedDefaultKey;
+
+  const url = resolveJwksUrl();
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch public key (${res.status})`);
   const text = await res.text();
+
   try {
     const parsed = JSON.parse(text);
-    cachedPublicKey = parsed.publicKey || parsed.key || text;
-  } catch {
-    cachedPublicKey = text;
+    if (Array.isArray(parsed.keys)) {
+      for (const jwk of parsed.keys) {
+        if (jwk.kty !== "RSA") continue;
+        const keyObj = crypto.createPublicKey({ key: jwk, format: "jwk" });
+        if (jwk.kid) cachedKeys.set(jwk.kid, keyObj);
+        if (!cachedDefaultKey) cachedDefaultKey = keyObj;
+      }
+      const matched = kid ? cachedKeys.get(kid) : cachedDefaultKey;
+      if (!matched) throw new Error(`No matching JWK found for kid=${kid || "default"}`);
+      return matched;
+    }
+    cachedDefaultKey = parsed.publicKey || parsed.key || text;
+  } catch (err) {
+    if (err.message.startsWith("No matching JWK")) throw err;
+    cachedDefaultKey = text;
   }
-  return cachedPublicKey;
+
+  return cachedDefaultKey;
 }
 
 export function clearPublicKeyCache() {
-  cachedPublicKey = null;
+  cachedKeys.clear();
+  cachedDefaultKey = null;
 }
 
 export async function requireAuth(req, res, next) {
@@ -45,7 +71,9 @@ export async function requireAuth(req, res, next) {
 
   const token = header.slice(7).trim();
   try {
-    const publicKey = await getPublicKey();
+    const decoded = jwt.decode(token, { complete: true });
+    const kid = decoded?.header?.kid;
+    const publicKey = await getPublicKey(kid);
     const payload = jwt.verify(token, publicKey, { algorithms: ["RS256"] });
     if (!payload.sub || !payload.role) {
       throw new Error("Missing required claims");

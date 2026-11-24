@@ -17,16 +17,25 @@ async function fetchCatalogue(queryString, authHeader) {
     throw err;
   }
   const data = await res.json();
-  return Array.isArray(data) ? data : data.sections || [];
+  return Array.isArray(data) ? data : data.items || data.sections || [];
 }
 
 export async function getSectionsByCourseIds(courseIds, authHeader) {
-  const ids = courseIds.map(String);
+  const ids = [...new Set(courseIds.map(String))];
   if ((process.env.DEP_MODE || "mock") === "mock") {
     const set = new Set(ids);
     return loadMockSections().filter((s) => set.has(String(s.courseId)));
   }
-  return fetchCatalogue(`courseIds=${encodeURIComponent(ids.join(","))}`, authHeader);
+  const results = await Promise.all(
+    ids.map((id) => fetchCatalogue(`courseId=${encodeURIComponent(id)}`, authHeader))
+  );
+  const byId = new Map();
+  for (const list of results) {
+    for (const section of list) {
+      byId.set(String(section.id), section);
+    }
+  }
+  return Array.from(byId.values());
 }
 
 export async function getSectionsByIds(sectionIds, authHeader) {

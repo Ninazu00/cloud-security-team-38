@@ -1,5 +1,12 @@
-import { badRequest, forbidden, locked, unauthorized } from '../errors.js';
-import { hashPassword, verifyPassword } from '../auth/passwords.js';
+import {
+  badRequest,
+  forbidden,
+  locked,
+  tooManyRequests,
+  unauthorized,
+  unprocessable,
+} from '../errors.js';
+import { assertPasswordPolicy, hashPassword, verifyPassword } from '../auth/passwords.js';
 import { turnstileFailed } from '../auth/turnstile.js';
 
 /**
@@ -9,9 +16,12 @@ import { turnstileFailed } from '../auth/turnstile.js';
  * until the caller has proved they control it. Two mechanisms implement it.
  *
  *  1. A constant dummy hash. When the email is unknown we still verify the supplied
- *     password against `DUMMY_HASH`, so the response time for "no such user" and
- *     "wrong password" is the same ~50 ms of Argon2id. Skipping the hash on an
- *     unknown email would make the fastest response the tell.
+ *     password against `DUMMY_HASH`, so "no such user" pays the same ~50 ms of
+ *     Argon2id as "wrong password". This narrows the timing gap; it does not close
+ *     it. A known account takes one extra write (`recordFailedAttempt`), and the
+ *     row lookup itself differs, so a patient attacker with many samples still has
+ *     something to measure — which is why the account also gets locked after five
+ *     failures. Timing equalisation is a mitigation, not a proof.
  *  2. Password before state. The lock and the verification flag are inspected only
  *     after a *correct* password. Checked earlier, "unknown email" would answer 401
  *     while "known but locked" answered 423 — an enumeration oracle built out of
@@ -27,9 +37,12 @@ export function createAuthService({
   users,
   sessions,
   tokens,
+  outbox,
+  actionTokens,
   verifyTurnstile,
   log = null,
   now = () => Date.now(),
+  resendLimitPerHour = 3,
 } = {}) {
   async function login({ email, password, turnstileToken, remoteIp, userAgent }) {
     if (typeof email !== 'string' || email.trim().length === 0 || email.length > 320) {
@@ -108,7 +121,149 @@ export function createAuthService({
     return { ...snapshot(user), emailVerifiedAt: user.emailVerifiedAt };
   }
 
-  return { login, refresh, logout, me };
+  /**
+   * Registration answers the same `202` whether the address was free or already
+   * taken, and never says which. Two details keep that promise honest:
+   *
+   *  - the password is hashed on both paths, so a duplicate does not answer
+   *    faster than a new account;
+   *  - mail is queued only when a row was actually inserted, so registration
+   *    cannot be used to send unsolicited messages to someone else's address.
+   *
+   * No token is returned: the account cannot sign in until the address is
+   * confirmed, so there is nothing useful to hand out yet.
+   */
+  async function register({ email, password, turnstileToken, remoteIp }) {
+    const address = normaliseEmail(email);
+    assertPasswordPolicy(password);
+
+    if (!(await verifyTurnstile(turnstileToken, remoteIp))) {
+      throw turnstileFailed();
+    }
+
+    const passwordHash = await hashPassword(password);
+    const user = await users.create({ email: address, passwordHash });
+
+    if (user) {
+      await outbox.enqueue({
+        toEmail: address,
+        templateKey: 'verify_email',
+        payload: { userId: user.id },
+      });
+      log?.info({ msg: 'auth.register', userId: user.id });
+    } else {
+      log?.info({ msg: 'auth.register.duplicate' });
+    }
+
+    return { status: 'accepted' };
+  }
+
+  /**
+   * Consume a verification link. Idempotent on the winning path: a second visit
+   * to a link that already worked answers `200` rather than an error, because
+   * "you are verified" is still true and the user did nothing wrong.
+   */
+  async function verifyEmail({ token }) {
+    const row = await actionTokens.find(token, 'email_verify');
+    if (!row) throw invalidLink();
+
+    if (row.consumedAt !== null) {
+      const user = await users.findById(row.userId);
+      if (user?.emailVerifiedAt) {
+        return { status: 'verified', emailVerifiedAt: user.emailVerifiedAt };
+      }
+      throw invalidLink();
+    }
+
+    if (row.expiresAt.getTime() <= now()) {
+      throw badRequest('INVALID_TOKEN', 'This link has expired. Request a new one.');
+    }
+
+    if (!(await actionTokens.markConsumed(row.id))) {
+      // Someone else consumed it between the read and the update. Answer from
+      // their result rather than reporting a failure the user cannot act on.
+      const user = await users.findById(row.userId);
+      if (user?.emailVerifiedAt) {
+        return { status: 'verified', emailVerifiedAt: user.emailVerifiedAt };
+      }
+      throw invalidLink();
+    }
+
+    const user = await users.markEmailVerified(row.userId);
+    if (!user) throw invalidLink();
+
+    log?.info({ msg: 'auth.email.verified', userId: user.id });
+    return { status: 'verified', emailVerifiedAt: user.emailVerifiedAt };
+  }
+
+  /**
+   * Queue another verification mail. Always `202`, for the same reason
+   * registration is: an unauthenticated caller must not learn whether an address
+   * has an unverified account.
+   *
+   * The limit is per account and counted from `auth_tokens`, not from the outbox:
+   * the token is minted when the mail is sent, so tokens are the record of mails
+   * that actually exist.
+   */
+  async function resendVerification({ email, turnstileToken, remoteIp }) {
+    if (!(await verifyTurnstile(turnstileToken, remoteIp))) {
+      throw turnstileFailed();
+    }
+
+    const address = normaliseEmail(email);
+    const user = await users.findByEmail(address);
+
+    if (user && user.emailVerifiedAt === null) {
+      const issued = await actionTokens.countSince({
+        userId: user.id,
+        purpose: 'email_verify',
+        sinceMs: now() - 60 * 60 * 1000,
+      });
+
+      if (issued >= resendLimitPerHour) {
+        throw tooManyRequests(
+          'RATE_LIMITED',
+          'Too many verification emails were requested. Try again later.',
+          { scope: 'verification_resend', limit: resendLimitPerHour },
+        );
+      }
+
+      // A new link replaces the old one, so "resend" cannot leave two live
+      // links in two mailboxes.
+      await actionTokens.discardOutstanding({ userId: user.id, purpose: 'email_verify' });
+      await outbox.enqueue({
+        toEmail: address,
+        templateKey: 'verify_email',
+        payload: { userId: user.id },
+      });
+      log?.info({ msg: 'auth.verify.resent', userId: user.id });
+    }
+
+    return { status: 'accepted' };
+  }
+
+  return { login, refresh, logout, me, register, verifyEmail, resendVerification };
+}
+
+function invalidLink() {
+  return badRequest('INVALID_TOKEN', 'This link is not valid. Request a new one.');
+}
+
+/**
+ * One place that decides what an acceptable address is. Lower-cased because the
+ * unique index is on `lower(email)`: `Ada@x.com` and `ada@x.com` are one account,
+ * so they must also be one string here.
+ */
+function normaliseEmail(value) {
+  const email = typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+  if (email.length === 0 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    throw unprocessable('VALIDATION_FAILED', 'A valid email address is required.', {
+      field: 'email',
+    });
+  }
+
+  return email;
 }
 
 /** The user object returned by login — a snapshot, not the authority (`/me` is). */

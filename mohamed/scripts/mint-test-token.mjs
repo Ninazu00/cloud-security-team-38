@@ -38,10 +38,14 @@ if (!Number.isFinite(ttl) || ttl <= 0) {
 
 // Only build AWS clients when there is a sealed key to unseal; with JWT_KEY_FILE
 // this script never touches AWS and should not construct an SDK client.
+// `testCredentials` is passed explicitly: this script is a local developer tool,
+// so the emulator's dummy pair is always the right answer here — and never in a
+// deployed task, which does not run scripts.
 const ports = kmsKeyAlias
   ? createAwsPorts({
       region: process.env.AWS_REGION ?? 'us-east-1',
       endpoint: process.env.AWS_ENDPOINT_URL,
+      testCredentials: true,
     })
   : null;
 

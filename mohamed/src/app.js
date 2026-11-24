@@ -5,10 +5,12 @@
 import express from 'express';
 import crypto from 'node:crypto';
 
-import { isProduction } from './config.js';
+import { config, isProduction } from './config.js';
 import { log } from './logger.js';
 import { ApiError, errorBody, notFound } from './errors.js';
 import { healthRouter } from './routes/health.js';
+import { cors } from './http/cors.js';
+import { securityHeaders } from './http/security.js';
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{8,64}$/;
 
@@ -21,7 +23,7 @@ const JSON_BODY_LIMIT_BYTES = 100 * 1024;
 // still available when a probe is what you are investigating.
 const PROBE_PATHS = new Set(['/healthz', '/readyz']);
 
-export function createApp({ auth = null } = {}) {
+export function createApp({ auth = null, catalogue = null, staticDir = null, allowedOrigins = config.corsOrigins } = {}) {
   const app = express();
 
   // Behind an ALB the client address arrives in X-Forwarded-For; without this
@@ -30,6 +32,9 @@ export function createApp({ auth = null } = {}) {
   // own address by sending the header itself.
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
+
+  app.use(securityHeaders({ hsts: isProduction }));
+  app.use(cors({ origins: allowedOrigins }));
 
   // Correlation id: accept a sane inbound one so a client-visible reference
   // matches the log line, otherwise mint one. Validation matters — the value
@@ -52,8 +57,11 @@ export function createApp({ auth = null } = {}) {
         status: res.statusCode,
         ms: Number(ms.toFixed(1)),
       };
-      // req.path, never req.originalUrl: the query string is where a reset token
-      // travels, and a path-only log structurally cannot record it.
+      // req.path, never req.originalUrl: reset and verification tokens travel in
+      // the query string (`?token=…`), and logging only the path keeps them out
+      // of the access log. This is a rule about *this* field, not a guarantee:
+      // a future route that put a token in the path itself would be logged, which
+      // is why tokens belong in bodies and query strings, never in path segments.
       if (PROBE_PATHS.has(req.path)) log.debug({ msg: 'probe', ...fields });
       else log.info({ msg: 'request', ...fields });
     });
@@ -73,6 +81,19 @@ export function createApp({ auth = null } = {}) {
   // AWS, KMS or the users table. Tests mount an ephemeral key through the same
   // door production uses.
   if (auth) app.use(auth.router);
+
+  // The catalogue, likewise composed outside this file. It needs auth's guards,
+  // which is why it is built after auth in `server.js` and passed in ready-made.
+  if (catalogue) app.use(catalogue.router);
+
+  // The frontend, when it is served from this origin — which is the deployment
+  // shape the contract assumes, because the refresh cookie is `SameSite=Strict`
+  // and a different site would silently drop it. Static files sit *after* the API
+  // routers so a missing asset can never shadow a route, and *before* the 404 so
+  // a page that is not there still answers in the API's envelope.
+  if (staticDir) {
+    app.use(express.static(staticDir, { index: 'index.html', etag: true, maxAge: 0 }));
+  }
 
   // Routes are mounted here as they are built — above this line. Everything that
   // falls through is a 404 in the same envelope as any other error, so no client

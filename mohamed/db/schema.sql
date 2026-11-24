@@ -139,7 +139,7 @@ create table courses (
   id          uuid primary key default gen_random_uuid(),
   code        text        not null,             -- e.g. "CSC101"
   title       text        not null,
-  credits     smallint    not null check (credits between 1 and 12),
+  credits     smallint    not null check (credits between 0 and 30),
   archived_at timestamptz,                      -- §3: delete is an archive
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
@@ -149,6 +149,11 @@ create table courses (
 -- would silently rewrite history for anyone who took the old one.
 create unique index courses_code_key on courses (upper(code));
 create index courses_archived_at_idx on courses (archived_at);
+
+-- Keyset paging reads "everything older than this row". The row constructor
+-- `(created_at, id) < (?, ?)` can only use an index that matches both columns in
+-- this order and direction; without it every page is a full sort.
+create index courses_created_at_id_idx on courses (created_at desc, id desc);
 
 drop trigger if exists courses_set_updated_at on courses;
 create trigger courses_set_updated_at before update on courses
@@ -162,7 +167,9 @@ create table sections (
   course_id    uuid        not null references courses (id) on delete restrict,
   section_code text        not null,            -- unique *per course*, e.g. "A", "B"
   type         text        not null
-                           check (type in ('lecture', 'lab', 'tutorial', 'seminar')),
+                           -- The contract lists exactly three offerings; anything
+                           -- else is a value the frontend would have to special-case.
+                           check (type in ('lecture', 'lab', 'tutorial')),
   room         text        not null,            -- the column that makes ROOM_CONFLICT possible
   capacity     smallint    not null check (capacity between 1 and 500),
   archived_at  timestamptz,
@@ -178,6 +185,10 @@ create unique index sections_course_code_live_key
 
 create index sections_course_id_idx on sections (course_id);
 create index sections_room_live_idx on sections (room) where archived_at is null;
+
+-- Paging the section list is a keyset walk on (created_at desc, id desc); without
+-- this index every page is a sort of the whole table.
+create index sections_created_at_id_idx on sections (created_at desc, id desc);
 
 drop trigger if exists sections_set_updated_at on sections;
 create trigger sections_set_updated_at before update on sections
@@ -224,7 +235,8 @@ create table imports (
   error_count  integer     not null default 0 check (error_count >= 0),
   report       jsonb,                           -- per-row errors, capped at 100 in responses
   created_by   uuid        references users (id) on delete set null,
-  created_at   timestamptz not null default now()
+  created_at   timestamptz not null default now(),
+  committed_at timestamptz                        -- null for a failed import: nothing was committed
 );
 
 create unique index imports_committed_hash_key

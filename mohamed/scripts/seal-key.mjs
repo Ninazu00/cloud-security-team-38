@@ -71,7 +71,9 @@ async function main() {
     return;
   }
 
-  const ports = createAwsPorts({ region: REGION, endpoint: ENDPOINT });
+  // A developer script that talks to floci: the dummy credential pair is passed
+  // explicitly, never inferred from the environment (see aws-clients.js).
+  const ports = createAwsPorts({ region: REGION, endpoint: ENDPOINT, testCredentials: true });
   const ciphertext = await ports.kms.encrypt({ plaintext: pem, keyId: KMS_KEY_ALIAS });
 
   let retired = [];

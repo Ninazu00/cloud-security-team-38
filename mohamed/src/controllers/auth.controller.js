@@ -89,5 +89,45 @@ export function createAuthController({ auth, tokens, now = () => Date.now() }) {
       noStore(res);
       res.status(200).json(user);
     },
+
+    /**
+     * 202 whether or not the address was free. The body says nothing about the
+     * account, which is the point: this endpoint is reachable without a session.
+     */
+    async register(req, res) {
+      const { email, password, turnstileToken } = req.body ?? {};
+
+      const result = await auth.register({
+        email,
+        password,
+        turnstileToken,
+        remoteIp: req.ip,
+      });
+
+      noStore(res);
+      res.status(202).json(result);
+    },
+
+    /** The token arrives in the body: a link in a URL leaks through history and logs. */
+    async verifyEmail(req, res) {
+      const { token } = req.body ?? {};
+      const result = await auth.verifyEmail({ token });
+
+      noStore(res);
+      res.status(200).json(result);
+    },
+
+    async resendVerification(req, res) {
+      const { email, turnstileToken } = req.body ?? {};
+
+      const result = await auth.resendVerification({
+        email,
+        turnstileToken,
+        remoteIp: req.ip,
+      });
+
+      noStore(res);
+      res.status(202).json(result);
+    },
   };
 }

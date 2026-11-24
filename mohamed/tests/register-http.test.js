@@ -5,6 +5,7 @@ import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import pg from 'pg';
 
 import { createApp } from '../src/app.js';
+import { noRateLimit } from './no-rate-limit.js';
 import { createActionTokenStore, hashToken } from '../src/auth/action-tokens.js';
 import { createAuthMiddleware } from '../src/auth/middleware.js';
 import { createSessionService } from '../src/auth/sessions.js';
@@ -141,11 +142,19 @@ before(async () => {
     outbox,
     actionTokens,
     verifyTurnstile: async () => turnstileOk,
+    withTransaction,
     resendLimitPerHour: 3,
   });
 
+  // Only this file's addresses: `node --test` runs files in parallel against one
+  // database, so a worker must not claim another file's mail.
+  const ownOutbox = {
+    ...outbox,
+    claim: (limit) => outbox.claim(limit, { toEmailLike: `${EMAIL_PREFIX}%` }),
+  };
+
   worker = createOutboxWorker({
-    outbox,
+    outbox: ownOutbox,
     send: capture.send,
     issueToken: actionTokens.issue,
     publicBaseUrl: 'http://localhost:3100',
@@ -159,7 +168,7 @@ before(async () => {
     }),
   };
 
-  server = createApp({ auth }).listen(0);
+  server = createApp({ auth, rateLimit: noRateLimit }).listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });

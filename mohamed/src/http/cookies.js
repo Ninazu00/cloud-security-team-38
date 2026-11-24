@@ -8,8 +8,14 @@
  *   __Secure-refresh   the double-underscore prefix makes the browser refuse the
  *                      cookie if it is ever set without `Secure`, so a staging
  *                      deployment over plain HTTP cannot quietly weaken it.
- *   HttpOnly           JavaScript cannot read it, so an XSS bug steals a page, not
- *                      a week-long session.
+ *   HttpOnly           JavaScript cannot read the token, so an XSS bug cannot
+ *                      copy the week-long credential out of the browser and keep
+ *                      using it after the page is closed. It does **not** make
+ *                      XSS harmless: injected script can still call
+ *                      /api/auth/refresh from the page and walk away with an
+ *                      access token — same origin, cookie attached automatically.
+ *                      HttpOnly shortens the theft from "a week, anywhere" to
+ *                      "while the script runs, in that tab".
  *   SameSite=Strict    it is not sent on cross-site navigations, which is what makes
  *                      CSRF on /api/auth/refresh a non-event. The cost: the frontend
  *                      must be same-site as the API (a Vercel frontend calling an

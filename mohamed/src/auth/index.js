@@ -1,4 +1,5 @@
 import { createAwsPorts } from './aws-clients.js';
+import { createActionTokenStore } from './action-tokens.js';
 import { createAuthMiddleware } from './middleware.js';
 import { loadKeystore } from './keystore.js';
 import { createSessionService } from './sessions.js';
@@ -7,6 +8,7 @@ import { createTurnstileVerifier } from './turnstile.js';
 
 import { createAuthController } from '../controllers/auth.controller.js';
 import { createUsersModel } from '../models/users.model.js';
+import { createOutbox } from '../models/outbox.model.js';
 import { createAuthRouter } from '../routes/auth.js';
 import { createAuthService } from '../services/auth.service.js';
 
@@ -23,8 +25,17 @@ export async function buildAuth({ query, withTransaction, config, log, turnstile
   // Only build AWS clients when there is a sealed key to unseal. A developer
   // running against keys/dev.pem has no reason to construct two SDK clients that
   // would then never be called.
+  //
+  // The emulator's dummy credentials are enabled only for a local endpoint *and*
+  // outside production. Both halves matter: an `AWS_ENDPOINT_URL` inherited from
+  // a copied `.env` must not silently replace a task role with `test` in a
+  // deployment, because the only symptom would be authenticating as nobody.
   const ports = config.kmsKeyAlias
-    ? createAwsPorts({ region: config.awsRegion, endpoint: config.awsEndpointUrl })
+    ? createAwsPorts({
+        region: config.awsRegion,
+        endpoint: config.awsEndpointUrl,
+        testCredentials: Boolean(config.awsEndpointUrl) && config.nodeEnv !== 'production',
+      })
     : null;
 
   const keystore = await loadKeystore({
@@ -57,7 +68,21 @@ export async function buildAuth({ query, withTransaction, config, log, turnstile
   const verifyTurnstile =
     turnstile ?? createTurnstileVerifier({ secret: config.turnstileSecret, log }).verify;
 
-  const service = createAuthService({ users, sessions, tokens, verifyTurnstile, log });
+  // Mail is queued here and drained by `email/worker.js`, which `server.js` starts
+  // after the server is listening. The auth service never touches SES.
+  const outbox = createOutbox({ query });
+  const actionTokens = createActionTokenStore({ query });
+
+  const service = createAuthService({
+    users,
+    sessions,
+    tokens,
+    outbox,
+    actionTokens,
+    verifyTurnstile,
+    log,
+    resendLimitPerHour: config.resendLimitPerHour,
+  });
   const middleware = createAuthMiddleware({ tokens, users });
   const controller = createAuthController({ auth: service, tokens });
 
@@ -70,6 +95,8 @@ export async function buildAuth({ query, withTransaction, config, log, turnstile
     middleware,
     tokens,
     keystore,
+    outbox,
+    actionTokens,
     source: keystore.source,
   };
 }

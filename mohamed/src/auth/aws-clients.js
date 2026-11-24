@@ -15,26 +15,26 @@ import {
  * different emulator) never touches the crypto code.
  *
  * Endpoint resolution matters because the assessment target is floci, not AWS:
- * when `endpoint` is set, requests go there and the credentials chain is allowed
- * to be the emulator's dummy pair. In deployment both are unset and the SDK uses
- * the ECS task role.
+ * when `endpoint` is set, requests go there. `testCredentials` is a separate,
+ * explicit flag rather than something inferred from the environment, because an
+ * inference is a bypass waiting to happen — `AWS_ENDPOINT_URL` inherited from a
+ * copied `.env` would otherwise swap real task-role credentials for `test` in a
+ * deployment, and the only visible symptom would be authenticating as nobody.
  */
-export function createAwsPorts({ region = 'us-east-1', endpoint } = {}) {
+export function createAwsPorts({ region = 'us-east-1', endpoint, testCredentials = false } = {}) {
   const clientConfig = { region };
 
-  if (endpoint) {
-    clientConfig.endpoint = endpoint;
+  if (endpoint) clientConfig.endpoint = endpoint;
 
-    // floci and LocalStack accept any credential but still want SigV4 headers.
-    // Only filled in when the emulator is explicitly in use, so a real deployment
-    // can never pick up "test" by accident.
-    if (!process.env.AWS_ACCESS_KEY_ID) {
-      clientConfig.credentials = {
-        accessKeyId: 'test',
-        secretAccessKey: 'test',
-        sessionToken: 'test',
-      };
-    }
+  // floci and LocalStack accept any credential but still want SigV4 headers.
+  // Callers pass `testCredentials` only for a local emulator; the flag is never
+  // derived from `process.env`, so a deployed task always uses its task role.
+  if (endpoint && testCredentials) {
+    clientConfig.credentials = {
+      accessKeyId: 'test',
+      secretAccessKey: 'test',
+      sessionToken: 'test',
+    };
   }
 
   const kmsClient = new KMSClient(clientConfig);

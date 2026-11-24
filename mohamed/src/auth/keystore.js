@@ -15,7 +15,10 @@ import { readFile } from 'node:fs/promises';
  * At boot the task calls GetSecretValue, then kms:Decrypt, and keeps the parsed
  * key in memory. Each half alone is useless: reading the secret yields ciphertext,
  * calling Decrypt yields nothing to decrypt. The task role therefore needs both
- * grants, and every boot writes an audit trail in CloudTrail.
+ * grants. On real AWS those two calls also appear in CloudTrail; floci records no
+ * audit trail, so the evidence for the assessed deployment is the boot log line
+ * (`keystore.unsealed`), not an audit service. That difference is named here so
+ * the report does not claim a control it cannot demonstrate.
  *
  * The cached secret (`class-tt/jwt-signing-key`) is JSON, produced by
  * `scripts/seal-key.mjs`:

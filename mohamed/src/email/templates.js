@@ -1,5 +1,5 @@
 /**
- * The two mails this service sends, as plain functions.
+ * The three mails this service sends, as plain functions.
  *
  * Both return `{ subject, text, html }`. No template engine: three fixed strings
  * are easier to audit than a rendering library, and a template that takes user
@@ -58,6 +58,37 @@ export function verificationEmail({ verifyUrl, expiresInHours = 24 }) {
         'If you did not create an account, ignore this message.',
       ],
       { url: verifyUrl, label: 'Confirm email address' },
+    ),
+  };
+}
+
+/**
+ * Reset mail. The link carries a single-use token and lands on the frontend, which
+ * posts it — a token in a URL that a browser navigates to ends up in history and in
+ * any proxy log on the way.
+ */
+export function passwordResetEmail({ resetUrl, expiresInMinutes = 30 }) {
+  const text = [
+    `Reset your ${BRAND} password`,
+    '',
+    'Open this address to choose a new password:',
+    resetUrl,
+    '',
+    `The link works once and expires in ${expiresInMinutes} minutes.`,
+    'If you did not ask for this, ignore the message — your password is unchanged.',
+  ].join('\n');
+
+  return {
+    subject: `Reset your ${BRAND} password`,
+    text,
+    html: layout(
+      'Reset your password',
+      [
+        'Open the link below to choose a new password.',
+        `It works once and expires in ${expiresInMinutes} minutes.`,
+        'If you did not ask for this, ignore the message — your password is unchanged.',
+      ],
+      { url: resetUrl, label: 'Choose a new password' },
     ),
   };
 }

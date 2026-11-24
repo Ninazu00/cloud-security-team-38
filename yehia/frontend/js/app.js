@@ -5,6 +5,7 @@
   const START_HOUR = 8; // 08:00
   const END_HOUR = 18;  // 18:00
   const TOKEN_KEY = "tt_builder_jwt";
+  const THEME_KEY = "tt_builder_theme";
 
   const state = {
     token: localStorage.getItem(TOKEN_KEY) || "",
@@ -15,6 +16,7 @@
   };
 
   const apiEnvBadge = document.getElementById("api-env-badge");
+  const themeToggleBtn = document.getElementById("theme-toggle-btn");
   const jwtInput = document.getElementById("jwt-input");
   const saveTokenBtn = document.getElementById("save-token-btn");
   const clearTokenBtn = document.getElementById("clear-token-btn");
@@ -39,11 +41,13 @@
   const savedListEl = document.getElementById("saved-list");
 
   function init() {
+    initTheme();
     apiEnvBadge.textContent = window.APP_CONFIG.ENV_LABEL;
     renderCoursePicker();
     renderEmptyGrid();
     syncAuthUI();
 
+    themeToggleBtn.addEventListener("click", toggleTheme);
     saveTokenBtn.addEventListener("click", handleSaveToken);
     clearTokenBtn.addEventListener("click", handleClearToken);
     generateBtn.addEventListener("click", handleGenerate);
@@ -55,6 +59,27 @@
     if (state.token) {
       loadSavedTimetables();
     }
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    themeToggleBtn.textContent = theme === "dark" ? "Light Mode" : "Dark Mode";
+  }
+
+  function initTheme() {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "dark" || saved === "light") {
+      applyTheme(saved);
+      return;
+    }
+    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(prefersDark ? "dark" : "light");
+  }
+
+  function toggleTheme() {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem(THEME_KEY, next);
+    applyTheme(next);
   }
 
   function syncAuthUI() {
@@ -580,25 +605,29 @@
         const endRow = Math.min(22, Math.ceil((endMin - baseMin) / 30) + 2);
         if (endRow <= startRow) return;
 
+        const courseLabel = section.courseCode || section.courseTitle || section.courseName || ("Course " + (section.courseId || ""));
+        const secLabel = section.sectionCode || section.sectionId || section.id || "";
+        const headingText = secLabel ? (courseLabel + " (" + secLabel + ")") : courseLabel;
+        const timeText = (slot.startTime || slot.start || "") + " - " + (slot.endTime || slot.end || "");
+        const room = slot.room || slot.location || section.room || section.location || "";
+
         const block = document.createElement("div");
         block.className = "slot-block color-" + colorIdx;
         block.style.gridColumn = String(dayIdx + 2);
         block.style.gridRow = startRow + " / " + endRow;
+        block.title = [headingText, section.courseTitle, timeText, room].filter(Boolean).join(" | ");
 
         const title = document.createElement("div");
         title.className = "slot-title";
-        const courseLabel = section.courseCode || section.courseTitle || section.courseName || ("Course " + (section.courseId || ""));
-        const secLabel = section.sectionCode || section.sectionId || section.id || "";
-        title.textContent = secLabel ? (courseLabel + " (" + secLabel + ")") : courseLabel;
+        title.textContent = headingText;
 
         const timeLine = document.createElement("div");
         timeLine.className = "slot-sub";
-        timeLine.textContent = (slot.startTime || slot.start || "") + " - " + (slot.endTime || slot.end || "");
+        timeLine.textContent = timeText;
 
         block.appendChild(title);
         block.appendChild(timeLine);
 
-        const room = slot.room || slot.location || section.room || section.location;
         if (room) {
           const roomEl = document.createElement("div");
           roomEl.className = "slot-sub";

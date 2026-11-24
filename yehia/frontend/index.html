@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Class Timetable Builder</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="css/style.css">
   <script src="js/config.js" defer></script>
   <script src="js/app.js" defer></script>
@@ -15,6 +16,9 @@
       <span id="api-env-badge" class="badge badge-info">Connecting...</span>
     </div>
     <div class="auth-bar">
+      <button id="theme-toggle-btn" type="button" class="btn btn-ghost btn-sm" aria-label="Toggle dark mode">
+        Dark Mode
+      </button>
       <label for="jwt-input" class="sr-only">Bearer JWT Token</label>
       <input
         id="jwt-input"

@@ -1,0 +1,44 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TimetablesDynamoDbAccess",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem",
+        "dynamodb:GetItem",
+        "dynamodb:Query",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:000000000000:table/timetables",
+        "arn:aws:dynamodb:us-east-1:000000000000:table/section_timetables"
+      ]
+    },
+    {
+      "Sid": "SectionEventsSqsAccess",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:000000000000:timetable-section-events"
+    },
+    {
+      "Sid": "TimetableCloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-1:000000000000:log-group:/aws/lambda/timetable-api:*",
+        "arn:aws:logs:us-east-1:000000000000:log-group:/aws/lambda/timetable-section-consumer:*",
+        "arn:aws:logs:us-east-1:000000000000:log-group:/timetable-service/app:*"
+      ]
+    }
+  ]
+}

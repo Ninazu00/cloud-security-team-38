@@ -10,10 +10,16 @@ import express from 'express';
 export function createAuthRouter({ controller, middleware, jwks }) {
   const router = express.Router();
 
+  router.post('/api/auth/register', controller.register);
   router.post('/api/auth/login', controller.login);
   router.post('/api/auth/refresh', controller.refresh);
   router.post('/api/auth/logout', controller.logout);
   router.get('/api/auth/me', middleware.requireAuth, controller.me);
+
+  // Both unauthenticated by necessity: an unverified account cannot sign in, so
+  // it could never present a token to finish verifying itself.
+  router.post('/api/auth/verify-email', controller.verifyEmail);
+  router.post('/api/auth/verify-email/resend', controller.resendVerification);
 
   // Not under /api and not authenticated: this is how the other two services learn
   // the public half of our signing key. Cacheable for ten minutes, and it has no

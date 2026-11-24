@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Courses · Class TT Catalogue</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <header data-topbar></header>
+
+    <main>
+      <div class="row">
+        <div>
+          <h1>Courses</h1>
+          <p class="muted small" data-count>Loading…</p>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn" type="button" data-new hidden>New course</button>
+      </div>
+
+      <div class="alert" data-alert hidden></div>
+
+      <div class="card">
+        <div class="row">
+          <div class="field grow">
+            <label for="q">Search</label>
+            <input id="q" type="search" placeholder="Code or title" autocomplete="off" />
+          </div>
+          <div class="field" data-archived-field hidden>
+            <label for="archived">Archived</label>
+            <select id="archived">
+              <option value="">Hide</option>
+              <option value="true">Show</option>
+            </select>
+          </div>
+          <button class="btn secondary" type="button" data-refresh>Refresh</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Title</th>
+              <th>Credits</th>
+              <th>Sections</th>
+              <th>Status</th>
+              <th data-actions-head></th>
+            </tr>
+          </thead>
+          <tbody data-rows></tbody>
+        </table>
+        <div class="empty" data-empty hidden>No courses match that search.</div>
+      </div>
+
+      <p><button class="btn secondary" type="button" data-more hidden>Load more</button></p>
+    </main>
+
+    <dialog data-dialog>
+      <h2 data-dialog-title>New course</h2>
+      <div class="alert" data-dialog-alert hidden></div>
+
+      <form data-form class="stack">
+        <div class="field">
+          <label for="code">Code</label>
+          <input id="code" name="code" type="text" maxlength="20" required placeholder="CSC210" />
+        </div>
+        <div class="field">
+          <label for="title">Title</label>
+          <input id="title" name="title" type="text" maxlength="200" required />
+        </div>
+        <div class="field">
+          <label for="credits">Credits</label>
+          <input id="credits" name="credits" type="number" min="0" max="30" required />
+        </div>
+
+        <div class="actions">
+          <button class="btn secondary" type="button" data-cancel>Cancel</button>
+          <button class="btn" type="submit" data-save>Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="assets/courses.js"></script>
+  </body>
+</html>

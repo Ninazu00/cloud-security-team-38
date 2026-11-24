@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in · Class TT Catalogue</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+    <!--
+      Turnstile is the one third party the CSP allows. `render=explicit` keeps the
+      widget from drawing itself into the page before our JavaScript is ready, so
+      the token callback and the expiry callback are always attached.
+
+      The sitekey below is Cloudflare's published "always passes" test key, paired
+      with the test secret on the server. Replace both together when the demo
+      moves to a real Turnstile widget.
+    -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  </head>
+  <body>
+    <main class="auth">
+      <div class="card">
+        <h1>Class TT <span class="muted">· Catalogue</span></h1>
+        <p class="muted small">The course catalogue and identity service for the timetable builder.</p>
+
+        <div class="tabs" role="tablist" aria-label="Sign in or create an account">
+          <button type="button" role="tab" aria-selected="true" data-mode="signin">Sign in</button>
+          <button type="button" role="tab" aria-selected="false" data-mode="register">Create account</button>
+        </div>
+
+        <div class="alert error" data-alert hidden></div>
+        <div class="alert info" data-note hidden></div>
+
+        <form data-form class="stack" novalidate>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="username" required />
+          </div>
+
+          <div class="field">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              minlength="10"
+              maxlength="72"
+              required
+            />
+          </div>
+
+          <div class="turnstile" data-turnstile></div>
+
+          <button class="btn" type="submit" data-submit>Sign in</button>
+        </form>
+
+        <p class="small muted" data-hint></p>
+      </div>
+    </main>
+
+    <script type="module" src="assets/login.js"></script>
+  </body>
+</html>

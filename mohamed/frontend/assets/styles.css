@@ -1,0 +1,292 @@
+/* One stylesheet, no framework, no build step.
+   Everything the CSP allows is here: `style-src 'self'` means no inline `style`
+   attributes and no <style> blocks, so layout lives in classes, not markup. */
+
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --ink: #1c2531;
+  --ink-soft: #5a6672;
+  --line: #dfe3e8;
+  --accent: #2f5bd7;
+  --accent-soft: #eaf0ff;
+  --danger: #b3261e;
+  --danger-soft: #fdecea;
+  --ok: #1c6b3f;
+  --ok-soft: #e8f5ee;
+  --warn-soft: #fff5e5;
+  --warn-ink: #8a5a00;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/*
+ * The browser's own `[hidden] { display: none }` loses to any author rule that
+ * sets `display` — and `.btn` sets `inline-flex`, so a button marked hidden was
+ * still painted. That mattered: the New course / New section buttons are hidden
+ * for students by JavaScript, and they kept showing up. This rule restores the
+ * meaning of the attribute for everything on the page.
+ */
+[hidden] { display: none !important; }
+
+h1, h2, h3 { margin: 0 0 0.35em; line-height: 1.25; }
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; }
+
+p { margin: 0 0 0.8em; }
+.muted { color: var(--ink-soft); }
+.small { font-size: 0.85rem; }
+.mono { font-family: "Cascadia Mono", Consolas, monospace; font-size: 0.9em; }
+
+/* ---------------------------------------------------------------- shell --- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 22px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { font-weight: 650; color: var(--ink); white-space: nowrap; }
+.brand span { color: var(--ink-soft); font-weight: 400; }
+
+.topbar nav { display: flex; gap: 4px; margin-left: 8px; }
+
+.topbar nav a {
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.topbar nav a:hover { background: var(--bg); text-decoration: none; }
+.topbar nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+
+.topbar .who {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+main { max-width: 1040px; margin: 0 auto; padding: 26px 22px 60px; }
+
+/* --------------------------------------------------------------- pieces --- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+.card > :last-child { margin-bottom: 0; }
+
+.row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.grow { flex: 1 1 220px; }
+.spacer { flex: 1; }
+
+.stack { display: flex; flex-direction: column; gap: 10px; }
+
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
+  text-transform: capitalize;
+}
+
+.badge.admin { background: #f1e9ff; color: #5b32b5; }
+.badge.student { background: var(--accent-soft); color: var(--accent); }
+.badge.live { background: var(--ok-soft); color: var(--ok); }
+.badge.archived { background: #eceff2; color: var(--ink-soft); }
+.badge.failed { background: var(--danger-soft); color: var(--danger); }
+
+/* --------------------------------------------------------------- inputs --- */
+
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 0.85rem; font-weight: 600; color: var(--ink-soft); }
+
+input[type="text"], input[type="email"], input[type="password"], input[type="number"],
+input[type="search"], input[type="file"], select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  min-width: 0;
+}
+
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input:disabled, select:disabled, button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* -------------------------------------------------------------- buttons --- */
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover { filter: brightness(0.94); }
+
+.btn.secondary {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.btn.ghost { background: transparent; color: var(--ink-soft); }
+
+.btn.danger { background: var(--danger); }
+
+.btn.small { padding: 4px 10px; font-size: 0.85rem; font-weight: 500; }
+
+/* ---------------------------------------------------------------- table --- */
+
+table { width: 100%; border-collapse: collapse; background: var(--surface); }
+
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-soft); }
+
+tbody tr:hover { background: #fafbfc; }
+tbody tr:last-child td { border-bottom: none; }
+
+td.actions { white-space: nowrap; }
+td.actions .btn + .btn { margin-left: 6px; }
+
+.table-wrap { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+
+/* ----------------------------------------------------------------- misc --- */
+
+.alert {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  margin-bottom: 12px;
+}
+
+.alert.error { background: var(--danger-soft); border-color: #f3c2bd; color: var(--danger); }
+.alert.ok { background: var(--ok-soft); border-color: #bfe3cd; color: var(--ok); }
+.alert.info { background: var(--accent-soft); border-color: #c9d8ff; color: #23407f; }
+.alert.warn { background: var(--warn-soft); border-color: #f0d9a8; color: var(--warn-ink); }
+
+.alert[hidden] { display: none; }
+
+.empty { padding: 26px; text-align: center; color: var(--ink-soft); }
+
+.times { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.time-chip {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------- dialog --- */
+
+dialog {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+  width: min(560px, calc(100vw - 32px));
+  box-shadow: 0 18px 40px rgba(16, 24, 40, 0.18);
+}
+
+dialog::backdrop { background: rgba(16, 24, 40, 0.35); }
+dialog h2 { margin-bottom: 14px; }
+dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+.blocks { display: flex; flex-direction: column; gap: 8px; }
+
+.block-row { display: flex; gap: 8px; align-items: flex-end; }
+.block-row select, .block-row input { flex: 1 1 0; }
+
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+td.actions { white-space: nowrap; }
+
+/* ----------------------------------------------------------------- auth --- */
+
+.auth { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.auth .card { width: min(430px, 100%); }
+.auth h1 { font-size: 1.3rem; }
+.auth .tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+
+.auth .tabs button {
+  flex: 1;
+  font: inherit;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.auth .tabs button[aria-selected="true"] {
+  background: var(--accent-soft);
+  border-color: #c9d8ff;
+  color: var(--accent);
+}
+
+.auth .turnstile { min-height: 65px; }
+
+footer.hint {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 22px 30px;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .topbar { flex-wrap: wrap; gap: 8px; }
+  .topbar .who { width: 100%; margin-left: 0; }
+  td.actions { white-space: normal; }
+}

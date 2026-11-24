@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Imports · Class TT Catalogue</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <header data-topbar></header>
+
+    <main>
+      <h1>Imports</h1>
+      <p class="muted small">
+        One CSV, validated in memory, written in a single transaction. Nothing is stored, and a file that was
+        already committed is refused by its SHA-256.
+      </p>
+
+      <div class="alert" data-alert hidden></div>
+
+      <div class="card stack">
+        <div class="field">
+          <label for="file">CSV file</label>
+          <input id="file" type="file" accept=".csv,text/csv" />
+          <p class="muted small">
+            Header: course_code, course_title, credits, section_code, type, room, capacity, day_of_week,
+            start_time, end_time — up to 2 MB and 5,000 rows.
+          </p>
+        </div>
+
+        <div class="actions">
+          <button class="btn secondary" type="button" data-dry>Check first</button>
+          <button class="btn" type="button" data-commit>Import</button>
+        </div>
+
+        <div data-result hidden>
+          <h2 data-result-title></h2>
+          <p class="small" data-result-meta></p>
+          <div class="alert" data-result-alert hidden></div>
+          <div class="table-wrap" data-error-wrap hidden>
+            <table>
+              <thead>
+                <tr>
+                  <th>Row</th>
+                  <th>Field</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody data-errors></tbody>
+            </table>
+          </div>
+          <p class="muted small" data-error-note hidden></p>
+        </div>
+      </div>
+
+      <h2 class="gap-top">History</h2>
+
+      <div class="row">
+        <div class="field">
+          <label for="status">Status</label>
+          <select id="status">
+            <option value="">All</option>
+            <option value="committed">Committed</option>
+            <option value="failed">Failed</option>
+          </select>
+        </div>
+        <button class="btn secondary" type="button" data-refresh>Refresh</button>
+      </div>
+
+      <div class="table-wrap gap-top">
+        <table>
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>File</th>
+              <th>Status</th>
+              <th>Rows</th>
+              <th>Errors</th>
+              <th>By</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody data-history></tbody>
+        </table>
+        <div class="empty" data-empty hidden>No imports yet.</div>
+      </div>
+
+      <div class="card gap-top" data-detail hidden>
+        <div class="row">
+          <h2 data-detail-title></h2>
+          <div class="spacer"></div>
+          <button class="btn ghost small" type="button" data-detail-close>Close</button>
+        </div>
+        <p class="small muted" data-detail-meta></p>
+        <div class="table-wrap" data-detail-wrap hidden>
+          <table>
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Field</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody data-detail-errors></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="assets/imports.js"></script>
+  </body>
+</html>

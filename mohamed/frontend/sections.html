@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sections · Class TT Catalogue</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <header data-topbar></header>
+
+    <main>
+      <div class="row">
+        <div>
+          <p class="small muted"><a href="courses.html">← Courses</a></p>
+          <h1 data-course-title>Loading…</h1>
+          <p class="muted small" data-course-meta></p>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn" type="button" data-new hidden>New section</button>
+      </div>
+
+      <div class="alert" data-alert hidden></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Section</th>
+              <th>Type</th>
+              <th>Room</th>
+              <th>Capacity</th>
+              <th>Times</th>
+              <th>Status</th>
+              <th data-actions-head></th>
+            </tr>
+          </thead>
+          <tbody data-rows></tbody>
+        </table>
+        <div class="empty" data-empty hidden>This course has no sections yet.</div>
+      </div>
+    </main>
+
+    <dialog data-dialog>
+      <h2 data-dialog-title>New section</h2>
+      <div class="alert" data-dialog-alert hidden></div>
+
+      <form data-form class="stack">
+        <div class="row">
+          <div class="field grow">
+            <label for="sectionCode">Section code</label>
+            <input id="sectionCode" name="sectionCode" type="text" maxlength="10" required placeholder="L1" />
+          </div>
+          <div class="field grow">
+            <label for="type">Type</label>
+            <select id="type" name="type">
+              <option value="lecture">lecture</option>
+              <option value="lab">lab</option>
+              <option value="tutorial">tutorial</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field grow">
+            <label for="room">Room</label>
+            <input id="room" name="room" type="text" maxlength="32" required placeholder="B-204" />
+          </div>
+          <div class="field grow">
+            <label for="capacity">Capacity</label>
+            <input id="capacity" name="capacity" type="number" min="1" max="500" required value="30" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Times <span class="muted small">(1 to 5 blocks, each ending the same day it starts)</span></label>
+          <div class="blocks" data-blocks></div>
+          <p><button class="btn secondary small" type="button" data-add-block>Add another block</button></p>
+        </div>
+
+        <div class="actions">
+          <button class="btn secondary" type="button" data-cancel>Cancel</button>
+          <button class="btn" type="submit" data-save>Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="assets/sections.js"></script>
+  </body>
+</html>

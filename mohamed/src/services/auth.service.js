@@ -40,10 +40,15 @@ export function createAuthService({
   outbox,
   actionTokens,
   verifyTurnstile,
+  withTransaction,
   log = null,
   now = () => Date.now(),
   resendLimitPerHour = 3,
+  resetLimitPerHour = 3,
 } = {}) {
+  if (typeof withTransaction !== 'function') {
+    throw new Error('createAuthService needs withTransaction from db.js.');
+  }
   async function login({ email, password, turnstileToken, remoteIp, userAgent }) {
     if (typeof email !== 'string' || email.trim().length === 0 || email.length > 320) {
       throw badRequest('VALIDATION_FAILED', 'A valid email address is required.');
@@ -201,9 +206,9 @@ export function createAuthService({
    * registration is: an unauthenticated caller must not learn whether an address
    * has an unverified account.
    *
-   * The limit is per account and counted from `auth_tokens`, not from the outbox:
-   * the token is minted when the mail is sent, so tokens are the record of mails
-   * that actually exist.
+   * The limit counts *requested mails*, which is what a bot actually consumes. It
+   * used to count `auth_tokens`, which only exist once the mail has been sent, so
+   * a burst of requests against a stalled worker was unlimited.
    */
   async function resendVerification({ email, turnstileToken, remoteIp }) {
     if (!(await verifyTurnstile(turnstileToken, remoteIp))) {
@@ -214,9 +219,9 @@ export function createAuthService({
     const user = await users.findByEmail(address);
 
     if (user && user.emailVerifiedAt === null) {
-      const issued = await actionTokens.countSince({
-        userId: user.id,
-        purpose: 'email_verify',
+      const issued = await outbox.countSince({
+        toEmail: address,
+        templateKey: 'verify_email',
         sinceMs: now() - 60 * 60 * 1000,
       });
 
@@ -242,7 +247,110 @@ export function createAuthService({
     return { status: 'accepted' };
   }
 
-  return { login, refresh, logout, me, register, verifyEmail, resendVerification };
+  /**
+   * Ask for a reset link. Always `202`, and the same body whether or not the
+   * address exists — a reset form that says "no such account" is a free
+   * membership oracle.
+   *
+   * Turnstile comes first: the endpoint sends mail on behalf of an anonymous
+   * caller, so the challenge is the only thing standing between a bot and
+   * someone's inbox.
+   */
+  async function requestPasswordReset({ email, turnstileToken, remoteIp }) {
+    if (!(await verifyTurnstile(turnstileToken, remoteIp))) {
+      throw turnstileFailed();
+    }
+
+    const address = normaliseEmail(email);
+    const user = await users.findByEmail(address);
+
+    if (user) {
+      const issued = await outbox.countSince({
+        toEmail: address,
+        templateKey: 'password_reset',
+        sinceMs: now() - 60 * 60 * 1000,
+      });
+
+      if (issued >= resetLimitPerHour) {
+        throw tooManyRequests(
+          'RATE_LIMITED',
+          'Too many reset emails were requested. Try again later.',
+          { scope: 'password_reset', limit: resetLimitPerHour },
+        );
+      }
+
+      await actionTokens.discardOutstanding({ userId: user.id, purpose: 'password_reset' });
+      await outbox.enqueue({
+        toEmail: address,
+        templateKey: 'password_reset',
+        payload: { userId: user.id },
+      });
+      log?.info({ msg: 'auth.reset.requested', userId: user.id });
+    } else {
+      // Same shape, no mail. Counted nowhere, so an unknown address cannot be
+      // rate-limited differently from a known one either.
+      log?.info({ msg: 'auth.reset.unknown_address' });
+    }
+
+    return { status: 'accepted' };
+  }
+
+  /**
+   * Spend a reset link. Everything happens in one transaction: the new hash, the
+   * "verified" flag (controlling the mailbox is the same proof), the token being
+   * consumed and every session being revoked. A half-applied reset — new password,
+   * old sessions still alive — is the failure this ordering prevents.
+   *
+   * The lockout counter is deliberately left alone: resetting a password should not
+   * hand a guessing attacker a fresh budget.
+   */
+  async function confirmPasswordReset({ token, newPassword }) {
+    if (typeof newPassword !== 'string') {
+      throw unprocessable('VALIDATION_FAILED', 'A new password is required.', {
+        field: 'newPassword',
+      });
+    }
+    assertPasswordPolicy(newPassword, 'newPassword');
+
+    const row = await actionTokens.find(token, 'password_reset');
+    if (!row) throw invalidLink();
+    if (row.expiresAt.getTime() <= now()) {
+      throw badRequest('INVALID_TOKEN', 'This reset link has expired. Request a new one.');
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    const at = new Date(now());
+
+    const applied = await withTransaction(async (client) => {
+      if (!(await actionTokens.markConsumed(row.id, client))) return null;
+      return users.resetPassword(client, { userId: row.userId, passwordHash, at });
+    });
+
+    if (!applied) throw invalidLink();
+
+    // The notice goes out after the commit: a mail that says "your password
+    // changed" must not be queued for a change that then rolls back.
+    await outbox.enqueue({
+      toEmail: applied.email,
+      templateKey: 'password_changed',
+      payload: {},
+    });
+
+    log?.info({ msg: 'auth.reset.confirmed', userId: applied.id });
+    return { status: 'reset' };
+  }
+
+  return {
+    login,
+    refresh,
+    logout,
+    me,
+    register,
+    verifyEmail,
+    resendVerification,
+    requestPasswordReset,
+    confirmPasswordReset,
+  };
 }
 
 function invalidLink() {

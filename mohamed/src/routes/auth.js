@@ -21,6 +21,11 @@ export function createAuthRouter({ controller, middleware, jwks }) {
   router.post('/api/auth/verify-email', controller.verifyEmail);
   router.post('/api/auth/verify-email/resend', controller.resendVerification);
 
+  // Reset works the same way: request is public (nobody who forgot a password can
+  // authenticate), confirm is driven by the token in the body.
+  router.post('/api/auth/password-reset/request', controller.requestPasswordReset);
+  router.post('/api/auth/password-reset/confirm', controller.confirmPasswordReset);
+
   // Not under /api and not authenticated: this is how the other two services learn
   // the public half of our signing key. Cacheable for ten minutes, and it has no
   // error response — an unreachable JWKS means "cannot verify", which the caller

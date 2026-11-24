@@ -129,5 +129,32 @@ export function createAuthController({ auth, tokens, now = () => Date.now() }) {
       noStore(res);
       res.status(202).json(result);
     },
+
+    /**
+     * Same shape as `resendVerification`: 202 and a body that says nothing about
+     * the account. The mail is the only way to learn anything, which is the point.
+     */
+    async requestPasswordReset(req, res) {
+      const { email, turnstileToken } = req.body ?? {};
+
+      const result = await auth.requestPasswordReset({
+        email,
+        turnstileToken,
+        remoteIp: req.ip,
+      });
+
+      noStore(res);
+      res.status(202).json(result);
+    },
+
+    /** 200 and no session: the user asked to change a password, not to sign in. */
+    async confirmPasswordReset(req, res) {
+      const { token, newPassword } = req.body ?? {};
+
+      const result = await auth.confirmPasswordReset({ token, newPassword });
+
+      noStore(res);
+      res.status(200).json(result);
+    },
   };
 }

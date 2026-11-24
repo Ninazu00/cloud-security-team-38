@@ -1,0 +1,77 @@
+[
+  {
+    "id": "101",
+    "courseId": "1",
+    "courseCode": "CS401",
+    "courseTitle": "Cloud Computing",
+    "sectionCode": "L1",
+    "type": "lecture",
+    "times": [{ "day": "sun", "start": "09:00", "end": "10:30", "room": "B-101" }]
+  },
+  {
+    "id": "102",
+    "courseId": "1",
+    "courseCode": "CS401",
+    "courseTitle": "Cloud Computing",
+    "sectionCode": "L2",
+    "type": "lecture",
+    "times": [{ "day": "tue", "start": "11:00", "end": "12:30", "room": "B-102" }]
+  },
+  {
+    "id": "103",
+    "courseId": "1",
+    "courseCode": "CS401",
+    "courseTitle": "Cloud Computing",
+    "sectionCode": "LAB1",
+    "type": "lab",
+    "times": [{ "day": "sun", "start": "10:30", "end": "12:00", "room": "LAB-3" }]
+  },
+  {
+    "id": "201",
+    "courseId": "2",
+    "courseCode": "CS402",
+    "courseTitle": "Cloud Security",
+    "sectionCode": "L1",
+    "type": "lecture",
+    "times": [{ "day": "sun", "start": "09:30", "end": "11:00", "room": "A-201" }]
+  },
+  {
+    "id": "202",
+    "courseId": "2",
+    "courseCode": "CS402",
+    "courseTitle": "Cloud Security",
+    "sectionCode": "L2",
+    "type": "lecture",
+    "times": [{ "day": "mon", "start": "10:00", "end": "11:30", "room": "A-202" }]
+  },
+  {
+    "id": "203",
+    "courseId": "2",
+    "courseCode": "CS402",
+    "courseTitle": "Cloud Security",
+    "sectionCode": "T1",
+    "type": "tutorial",
+    "times": [{ "day": "wed", "start": "12:00", "end": "13:00", "room": "C-105" }]
+  },
+  {
+    "id": "301",
+    "courseId": "3",
+    "courseCode": "CS403",
+    "courseTitle": "Distributed Systems",
+    "sectionCode": "L1",
+    "type": "lecture",
+    "times": [{ "day": "mon", "start": "13:00", "end": "14:30", "room": "B-201" }]
+  },
+  {
+    "id": "401",
+    "courseId": "4",
+    "courseCode": "CS404",
+    "courseTitle": "Impossible Course",
+    "sectionCode": "L1",
+    "type": "lecture",
+    "times": [
+      { "day": "sun", "start": "09:00", "end": "13:00", "room": "D-101" },
+      { "day": "tue", "start": "10:30", "end": "13:00", "room": "D-101" }
+    ]
+  }
+]

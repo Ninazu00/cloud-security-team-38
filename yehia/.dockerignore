@@ -1,0 +1,13 @@
+node_modules
+.env
+*.pem
+lambda.zip
+tests
+frontend
+infra
+docs
+evidence
+requests.http
+README.md
+.git
+.gitignore

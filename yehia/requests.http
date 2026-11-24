@@ -1,0 +1,72 @@
+@baseUrl = http://56740348ff.execute-api.localhost.floci.io:4566
+# @baseUrl = http://localhost:3002
+@studentToken = PASTE_STUDENT_1_JWT
+@otherStudentToken = PASTE_STUDENT_2_JWT
+@adminToken = PASTE_ADMIN_JWT
+@timetableId = PASTE_SAVED_TIMETABLE_ID
+
+### T01 Health check (Admin -> 200)
+GET {{baseUrl}}/api/health
+Authorization: Bearer {{adminToken}}
+
+### T02 Health check (Student -> 403)
+GET {{baseUrl}}/api/health
+Authorization: Bearer {{studentToken}}
+
+### T03 Missing token (-> 401)
+GET {{baseUrl}}/api/timetables
+
+### T04 Check clashes (101 & 201 overlap -> 200)
+POST {{baseUrl}}/api/timetables/check
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{"sectionIds":["101","201"]}
+
+### T05 Generate valid timetables (Courses 1, 2, 3 -> 200)
+POST {{baseUrl}}/api/timetables/generate
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{"courseIds":["1","2","3"]}
+
+### T06 Generate conflict explanation (Courses 1 & 4 -> 422)
+POST {{baseUrl}}/api/timetables/generate
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{"courseIds":["1","4"]}
+
+### T07 Save timetable (201)
+POST {{baseUrl}}/api/timetables
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{"name":"Fall 2026 Plan A","sectionIds":["101","103","202","203","301"]}
+
+### T08 List own timetables (200)
+GET {{baseUrl}}/api/timetables
+Authorization: Bearer {{studentToken}}
+
+### T09 Get own timetable (200)
+GET {{baseUrl}}/api/timetables/{{timetableId}}
+Authorization: Bearer {{studentToken}}
+
+### T10 IDOR check: another student reads timetable (404)
+GET {{baseUrl}}/api/timetables/{{timetableId}}
+Authorization: Bearer {{otherStudentToken}}
+
+### T11 Export .ics calendar (200)
+GET {{baseUrl}}/api/timetables/{{timetableId}}/calendar.ics
+Authorization: Bearer {{studentToken}}
+
+### T12 Non-JSON Content-Type (415)
+POST {{baseUrl}}/api/timetables/check
+Authorization: Bearer {{studentToken}}
+Content-Type: text/plain
+
+sectionIds=101
+
+### T13 Delete own timetable (204)
+DELETE {{baseUrl}}/api/timetables/{{timetableId}}
+Authorization: Bearer {{studentToken}}

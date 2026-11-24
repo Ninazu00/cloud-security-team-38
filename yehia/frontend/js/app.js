@@ -1,0 +1,615 @@
+(function () {
+  "use strict";
+
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu"];
+  const START_HOUR = 8; // 08:00
+  const END_HOUR = 18;  // 18:00
+  const TOKEN_KEY = "tt_builder_jwt";
+
+  const state = {
+    token: localStorage.getItem(TOKEN_KEY) || "",
+    generatedOptions: [],
+    currentIndex: 0,
+    activeSections: [],
+    activeLabel: ""
+  };
+
+  const apiEnvBadge = document.getElementById("api-env-badge");
+  const jwtInput = document.getElementById("jwt-input");
+  const saveTokenBtn = document.getElementById("save-token-btn");
+  const clearTokenBtn = document.getElementById("clear-token-btn");
+  const authStatus = document.getElementById("auth-status");
+
+  const courseListEl = document.getElementById("course-list");
+  const generateBtn = document.getElementById("generate-btn");
+
+  const alertBox = document.getElementById("alert-box");
+  const prevBtn = document.getElementById("prev-option-btn");
+  const nextBtn = document.getElementById("next-option-btn");
+  const optionCounter = document.getElementById("option-counter");
+
+  const saveForm = document.getElementById("save-form");
+  const timetableNameInput = document.getElementById("timetable-name");
+  const saveTimetableBtn = document.getElementById("save-timetable-btn");
+
+  const gridMeta = document.getElementById("grid-meta");
+  const timetableGrid = document.getElementById("timetable-grid");
+
+  const refreshSavedBtn = document.getElementById("refresh-saved-btn");
+  const savedListEl = document.getElementById("saved-list");
+
+  function init() {
+    apiEnvBadge.textContent = window.APP_CONFIG.ENV_LABEL;
+    renderCoursePicker();
+    renderEmptyGrid();
+    syncAuthUI();
+
+    saveTokenBtn.addEventListener("click", handleSaveToken);
+    clearTokenBtn.addEventListener("click", handleClearToken);
+    generateBtn.addEventListener("click", handleGenerate);
+    prevBtn.addEventListener("click", () => switchOption(-1));
+    nextBtn.addEventListener("click", () => switchOption(1));
+    saveForm.addEventListener("submit", handleSaveTimetable);
+    refreshSavedBtn.addEventListener("click", loadSavedTimetables);
+
+    if (state.token) {
+      loadSavedTimetables();
+    }
+  }
+
+  function syncAuthUI() {
+    jwtInput.value = state.token;
+    if (state.token) {
+      authStatus.textContent = "Token Set";
+      authStatus.className = "badge badge-ok";
+    } else {
+      authStatus.textContent = "No Token";
+      authStatus.className = "badge badge-warn";
+    }
+  }
+
+  function handleSaveToken() {
+    const raw = jwtInput.value.trim().replace(/^Bearer\s+/i, "");
+    if (!raw) {
+      showAlert("warn", "Missing Token", ["Paste a valid JWT minted via node scripts/mint-token.js."]);
+      return;
+    }
+    state.token = raw;
+    localStorage.setItem(TOKEN_KEY, raw);
+    syncAuthUI();
+    clearAlert();
+    loadSavedTimetables();
+  }
+
+  function handleClearToken() {
+    state.token = "";
+    localStorage.removeItem(TOKEN_KEY);
+    syncAuthUI();
+    savedListEl.replaceChildren(createParagraph("muted", "Set a JWT token to load saved timetables."));
+  }
+
+  async function apiFetch(path, options = {}) {
+    if (!state.token) {
+      throw new Error("Please set a Student JWT token first.");
+    }
+    const headers = Object.assign(
+      { Authorization: "Bearer " + state.token },
+      options.body ? { "Content-Type": "application/json" } : {},
+      options.headers || {}
+    );
+
+    const res = await fetch(window.APP_CONFIG.API_BASE_URL + path, {
+      method: options.method || "GET",
+      headers,
+      body: options.body
+    });
+
+    if (options.rawResponse) {
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error("Request failed (" + res.status + "): " + text);
+      }
+      return res;
+    }
+
+    if (res.status === 204) {
+      return { ok: true, status: 204, data: null };
+    }
+
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (_) {
+      data = null;
+    }
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  function showAlert(type, title, lines) {
+    alertBox.className = "alert alert-" + type;
+    alertBox.replaceChildren();
+
+    const titleEl = document.createElement("div");
+    titleEl.className = "alert-title";
+    titleEl.textContent = title;
+    alertBox.appendChild(titleEl);
+
+    if (Array.isArray(lines) && lines.length > 0) {
+      const ul = document.createElement("ul");
+      ul.className = "alert-list";
+      lines.forEach((line) => {
+        const li = document.createElement("li");
+        li.textContent = String(line);
+        ul.appendChild(li);
+      });
+      alertBox.appendChild(ul);
+    }
+  }
+
+  function clearAlert() {
+    alertBox.className = "alert hidden";
+    alertBox.replaceChildren();
+  }
+
+  function createParagraph(className, text) {
+    const p = document.createElement("p");
+    p.className = className;
+    p.textContent = text;
+    return p;
+  }
+
+  function renderCoursePicker() {
+    courseListEl.replaceChildren();
+    window.APP_CONFIG.MOCK_COURSES.forEach((course, idx) => {
+      const label = document.createElement("label");
+      label.className = "course-item";
+
+      const left = document.createElement("span");
+      left.className = "course-left";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = course.id;
+      checkbox.name = "courseId";
+      if (idx < 3) checkbox.checked = true;
+
+      const text = document.createElement("span");
+      text.textContent = course.label;
+
+      left.appendChild(checkbox);
+      left.appendChild(text);
+
+      const note = document.createElement("span");
+      note.className = "course-note";
+      note.textContent = course.note;
+
+      label.appendChild(left);
+      label.appendChild(note);
+      courseListEl.appendChild(label);
+    });
+  }
+
+  function getSelectedCourseIds() {
+    const checked = courseListEl.querySelectorAll('input[name="courseId"]:checked');
+    return Array.from(checked).map((el) => el.value);
+  }
+
+  async function handleGenerate() {
+    clearAlert();
+    const courseIds = getSelectedCourseIds();
+    if (courseIds.length === 0) {
+      showAlert("warn", "No Courses Selected", ["Pick at least one course before generating."]);
+      return;
+    }
+
+    generateBtn.disabled = true;
+    try {
+      const res = await apiFetch("/api/timetables/generate", {
+        method: "POST",
+        body: JSON.stringify({ courseIds })
+      });
+
+      if (res.status === 422) {
+        const err = (res.data && res.data.error) || {};
+        const details = [];
+        if (err.message) details.push(err.message);
+        if (Array.isArray(err.conflictingCourseIds) && err.conflictingCourseIds.length) {
+          details.push("Conflicting courses: " + err.conflictingCourseIds.join(", "));
+        }
+        if (Array.isArray(err.conflictingPairs) && err.conflictingPairs.length) {
+          const pairs = err.conflictingPairs.map((pair) =>
+            Array.isArray(pair) ? pair.join(" vs ") : JSON.stringify(pair)
+          );
+          details.push("Conflicting pairs: " + pairs.join("; "));
+        }
+        state.generatedOptions = [];
+        state.activeSections = [];
+        updateSwitcherUI();
+        renderEmptyGrid();
+        showAlert("error", "422 No Valid Timetable (" + (err.code || "CONFLICT") + ")", details);
+        return;
+      }
+
+      if (!res.ok) {
+        const msg = (res.data && res.data.error && res.data.error.message) || ("HTTP " + res.status);
+        showAlert("error", "Generation Failed", [msg]);
+        return;
+      }
+
+      const timetables = (res.data && res.data.timetables) || [];
+      if (timetables.length === 0) {
+        showAlert("warn", "Empty Result", ["No timetables were returned for the selected courses."]);
+        return;
+      }
+
+      state.generatedOptions = timetables;
+      state.currentIndex = 0;
+      displayGeneratedOption(0);
+
+      if (res.data && res.data.capped) {
+        showAlert("warn", "Results Capped", ["Showing the maximum capped number of clash-free combinations."]);
+      }
+    } catch (err) {
+      showAlert("error", "Request Error", [err.message]);
+    } finally {
+      generateBtn.disabled = false;
+    }
+  }
+
+  function extractSections(option) {
+    if (Array.isArray(option)) return option;
+    if (option && Array.isArray(option.sections)) return option.sections;
+    return [];
+  }
+
+  function displayGeneratedOption(index) {
+    state.currentIndex = index;
+    state.activeSections = extractSections(state.generatedOptions[index]);
+    state.activeLabel = "Generated Option " + (index + 1) + " of " + state.generatedOptions.length;
+    updateSwitcherUI();
+    renderTimetableGrid(state.activeSections, state.activeLabel);
+  }
+
+  function switchOption(delta) {
+    const next = state.currentIndex + delta;
+    if (next >= 0 && next < state.generatedOptions.length) {
+      displayGeneratedOption(next);
+    }
+  }
+
+  function updateSwitcherUI() {
+    const total = state.generatedOptions.length;
+    if (total === 0) {
+      optionCounter.textContent = state.activeLabel || "No timetable loaded";
+      prevBtn.disabled = true;
+      nextBtn.disabled = true;
+    } else {
+      optionCounter.textContent = "Option " + (state.currentIndex + 1) + " of " + total;
+      prevBtn.disabled = state.currentIndex <= 0;
+      nextBtn.disabled = state.currentIndex >= total - 1;
+    }
+    saveTimetableBtn.disabled = state.activeSections.length === 0;
+  }
+
+  async function handleSaveTimetable(event) {
+    event.preventDefault();
+    clearAlert();
+
+    const name = timetableNameInput.value.trim();
+    const sectionIds = state.activeSections
+      .map((sec) => sec.sectionId || sec.id)
+      .filter(Boolean);
+
+    if (!name || sectionIds.length === 0) {
+      showAlert("warn", "Cannot Save", ["Generate a timetable and enter a name first."]);
+      return;
+    }
+
+    saveTimetableBtn.disabled = true;
+    try {
+      const res = await apiFetch("/api/timetables", {
+        method: "POST",
+        body: JSON.stringify({ name, sectionIds })
+      });
+
+      if (!res.ok) {
+        const msg = (res.data && res.data.error && res.data.error.message) || ("HTTP " + res.status);
+        showAlert("error", "Save Failed", [msg]);
+        return;
+      }
+
+      timetableNameInput.value = "";
+      showAlert("success", "Timetable Saved", ['Saved "' + name + '" with ' + sectionIds.length + " sections."]);
+      await loadSavedTimetables();
+    } catch (err) {
+      showAlert("error", "Save Error", [err.message]);
+    } finally {
+      saveTimetableBtn.disabled = state.activeSections.length === 0;
+    }
+  }
+
+  async function loadSavedTimetables() {
+    try {
+      const res = await apiFetch("/api/timetables");
+      if (!res.ok) {
+        const msg = (res.data && res.data.error && res.data.error.message) || ("HTTP " + res.status);
+        savedListEl.replaceChildren(createParagraph("muted", "Failed to load: " + msg));
+        return;
+      }
+
+      const items = Array.isArray(res.data) ? res.data : (res.data && res.data.timetables) || [];
+      savedListEl.replaceChildren();
+
+      if (items.length === 0) {
+        savedListEl.appendChild(createParagraph("muted", "No saved timetables yet."));
+        return;
+      }
+
+      items.forEach((item) => {
+        const id = item.id || item.timetableId;
+        const card = document.createElement("div");
+        card.className = "saved-item";
+
+        const top = document.createElement("div");
+        top.className = "saved-item-top";
+
+        const nameEl = document.createElement("span");
+        nameEl.className = "saved-name";
+        nameEl.textContent = item.name || ("Timetable " + id);
+        top.appendChild(nameEl);
+
+        if (item.stale) {
+          const staleBadge = document.createElement("span");
+          staleBadge.className = "badge badge-danger";
+          staleBadge.textContent = "Stale";
+          top.appendChild(staleBadge);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "saved-actions";
+
+        const viewBtn = document.createElement("button");
+        viewBtn.type = "button";
+        viewBtn.className = "btn btn-ghost btn-sm";
+        viewBtn.textContent = "View";
+        viewBtn.addEventListener("click", () => handleViewSaved(id));
+
+        const icsBtn = document.createElement("button");
+        icsBtn.type = "button";
+        icsBtn.className = "btn btn-ghost btn-sm";
+        icsBtn.textContent = "Download .ics";
+        icsBtn.addEventListener("click", () => handleDownloadIcs(id, item.name));
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "btn btn-danger btn-sm";
+        delBtn.textContent = "Delete";
+        delBtn.addEventListener("click", () => handleDeleteSaved(id));
+
+        actions.appendChild(viewBtn);
+        actions.appendChild(icsBtn);
+        actions.appendChild(delBtn);
+
+        card.appendChild(top);
+        card.appendChild(actions);
+        savedListEl.appendChild(card);
+      });
+    } catch (err) {
+      savedListEl.replaceChildren(createParagraph("muted", err.message));
+    }
+  }
+
+  async function handleViewSaved(id) {
+    clearAlert();
+    try {
+      const res = await apiFetch("/api/timetables/" + encodeURIComponent(id));
+      if (!res.ok) {
+        showAlert("error", "Load Failed", ["Could not load timetable (" + res.status + ")."]);
+        return;
+      }
+
+      const tt = res.data || {};
+      state.generatedOptions = [];
+      state.activeSections = Array.isArray(tt.sections) ? tt.sections : [];
+      state.activeLabel = "Saved: " + (tt.name || id);
+      updateSwitcherUI();
+      renderTimetableGrid(state.activeSections, state.activeLabel);
+
+      const warnings = [];
+      if (tt.stale) {
+        warnings.push("One or more sections changed in the catalogue since this timetable was saved.");
+      }
+      if (Array.isArray(tt.missingSectionIds) && tt.missingSectionIds.length > 0) {
+        warnings.push("Missing sections: " + tt.missingSectionIds.join(", "));
+      }
+      if (warnings.length > 0) {
+        showAlert("warn", "Stale Timetable Warning", warnings);
+      }
+    } catch (err) {
+      showAlert("error", "View Error", [err.message]);
+    }
+  }
+
+  async function handleDownloadIcs(id, name) {
+    clearAlert();
+    try {
+      const res = await apiFetch("/api/timetables/" + encodeURIComponent(id) + "/calendar.ics", {
+        rawResponse: true
+      });
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const safeName = (name || "timetable").replace(/[^a-z0-9_-]+/gi, "_");
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = safeName + ".ics";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      showAlert("error", "Calendar Export Failed", [err.message]);
+    }
+  }
+
+  async function handleDeleteSaved(id) {
+    clearAlert();
+    try {
+      const res = await apiFetch("/api/timetables/" + encodeURIComponent(id), {
+        method: "DELETE"
+      });
+      if (!res.ok && res.status !== 204) {
+        showAlert("error", "Delete Failed", ["HTTP " + res.status]);
+        return;
+      }
+      showAlert("success", "Deleted", ["Timetable removed."]);
+      await loadSavedTimetables();
+    } catch (err) {
+      showAlert("error", "Delete Error", [err.message]);
+    }
+  }
+
+  function renderEmptyGrid() {
+    gridMeta.textContent = "Select courses and click Generate Timetables, or view a saved timetable.";
+    buildBaseGrid();
+  }
+
+  function buildBaseGrid() {
+    timetableGrid.replaceChildren();
+
+    const corner = document.createElement("div");
+    corner.className = "grid-header";
+    corner.textContent = "Time";
+    corner.style.gridColumn = "1";
+    corner.style.gridRow = "1";
+    timetableGrid.appendChild(corner);
+
+    DAYS.forEach((day, idx) => {
+      const header = document.createElement("div");
+      header.className = "grid-header";
+      header.textContent = day;
+      header.style.gridColumn = String(idx + 2);
+      header.style.gridRow = "1";
+      timetableGrid.appendChild(header);
+    });
+
+    const totalRows = (END_HOUR - START_HOUR) * 2;
+    for (let r = 0; r < totalRows; r++) {
+      const gridRow = r + 2;
+      const timeCell = document.createElement("div");
+      timeCell.className = "grid-time";
+      timeCell.style.gridColumn = "1";
+      timeCell.style.gridRow = String(gridRow);
+
+      if (r % 2 === 0) {
+        const hour = START_HOUR + r / 2;
+        timeCell.textContent = String(hour).padStart(2, "0") + ":00";
+      }
+      timetableGrid.appendChild(timeCell);
+
+      for (let c = 0; c < DAYS.length; c++) {
+        const cell = document.createElement("div");
+        cell.className = "grid-cell";
+        cell.style.gridColumn = String(c + 2);
+        cell.style.gridRow = String(gridRow);
+        timetableGrid.appendChild(cell);
+      }
+    }
+  }
+
+  function normalizeDayIndex(rawDay) {
+    if (!rawDay) return -1;
+    const prefix = String(rawDay).trim().slice(0, 3).toLowerCase();
+    return DAYS.findIndex((d) => d.toLowerCase() === prefix);
+  }
+
+  function parseTimeToMinutes(value) {
+    if (typeof value === "number") {
+      return value <= 24 ? value * 60 : value;
+    }
+    if (typeof value === "string") {
+      const match = value.trim().match(/^(\d{1,2}):(\d{2})/);
+      if (match) {
+        return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
+      }
+    }
+    return null;
+  }
+
+  function extractSlotsFromSection(section) {
+    if (Array.isArray(section.times)) return section.times;
+    if (Array.isArray(section.slots)) return section.slots;
+    if (Array.isArray(section.meetings)) return section.meetings;
+    if (Array.isArray(section.sessions)) return section.sessions;
+    if (Array.isArray(section.days)) {
+      return section.days.map((d) => ({
+        day: d,
+        startTime: section.startTime || section.start,
+        endTime: section.endTime || section.end,
+        room: section.room || section.location
+      }));
+    }
+    return [section];
+  }
+
+  function renderTimetableGrid(sections, label) {
+    buildBaseGrid();
+    gridMeta.textContent = label + " — " + sections.length + " section(s)";
+
+    const courseColorMap = new Map();
+    let nextColor = 0;
+
+    sections.forEach((section) => {
+      const courseKey = String(section.courseCode || section.courseId || section.courseName || section.id || "course");
+      if (!courseColorMap.has(courseKey)) {
+        courseColorMap.set(courseKey, nextColor % 5);
+        nextColor += 1;
+      }
+      const colorIdx = courseColorMap.get(courseKey);
+      const slots = extractSlotsFromSection(section);
+
+      slots.forEach((slot) => {
+        const dayIdx = normalizeDayIndex(slot.day || slot.dayOfWeek);
+        const startMin = parseTimeToMinutes(slot.startTime || slot.start || slot.startMinutes);
+        const endMin = parseTimeToMinutes(slot.endTime || slot.end || slot.endMinutes);
+
+        if (dayIdx < 0 || startMin === null || endMin === null) return;
+
+        const baseMin = START_HOUR * 60;
+        const startRow = Math.max(2, Math.floor((startMin - baseMin) / 30) + 2);
+        const endRow = Math.min(22, Math.ceil((endMin - baseMin) / 30) + 2);
+        if (endRow <= startRow) return;
+
+        const block = document.createElement("div");
+        block.className = "slot-block color-" + colorIdx;
+        block.style.gridColumn = String(dayIdx + 2);
+        block.style.gridRow = startRow + " / " + endRow;
+
+        const title = document.createElement("div");
+        title.className = "slot-title";
+        const courseLabel = section.courseCode || section.courseTitle || section.courseName || ("Course " + (section.courseId || ""));
+        const secLabel = section.sectionCode || section.sectionId || section.id || "";
+        title.textContent = secLabel ? (courseLabel + " (" + secLabel + ")") : courseLabel;
+
+        const timeLine = document.createElement("div");
+        timeLine.className = "slot-sub";
+        timeLine.textContent = (slot.startTime || slot.start || "") + " - " + (slot.endTime || slot.end || "");
+
+        block.appendChild(title);
+        block.appendChild(timeLine);
+
+        const room = slot.room || slot.location || section.room || section.location;
+        if (room) {
+          const roomEl = document.createElement("div");
+          roomEl.className = "slot-sub";
+          roomEl.textContent = room;
+          block.appendChild(roomEl);
+        }
+
+        timetableGrid.appendChild(block);
+      });
+    });
+  }
+
+  init();
+})();

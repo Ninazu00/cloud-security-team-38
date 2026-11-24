@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class Timetable Builder</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-brand">
+      <h1>Class Timetable Builder</h1>
+      <span id="api-env-badge" class="badge badge-info">Connecting...</span>
+    </div>
+    <div class="auth-bar">
+      <label for="jwt-input" class="sr-only">Bearer JWT Token</label>
+      <input
+        id="jwt-input"
+        type="password"
+        placeholder="Paste Student Bearer JWT..."
+        autocomplete="off"
+      >
+      <button id="save-token-btn" type="button" class="btn btn-primary">Set Token</button>
+      <button id="clear-token-btn" type="button" class="btn btn-ghost">Clear</button>
+      <span id="auth-status" class="badge badge-warn">No Token</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <section class="card">
+        <h2>1. Pick Courses</h2>
+        <p class="hint">Mock mode: Courses 1, 2, 3 generate valid timetables. Selecting 1 and 4 triggers a 422 clash.</p>
+        <div id="course-list" class="course-list"></div>
+        <button id="generate-btn" type="button" class="btn btn-primary btn-full">
+          Generate Timetables
+        </button>
+      </section>
+
+      <section class="card">
+        <div class="section-header">
+          <h2>Saved Timetables</h2>
+          <button id="refresh-saved-btn" type="button" class="btn btn-ghost btn-sm">Refresh</button>
+        </div>
+        <div id="saved-list" class="saved-list">
+          <p class="muted">Set a JWT token to load saved timetables.</p>
+        </div>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <div id="alert-box" class="alert hidden" role="alert"></div>
+
+      <div class="card toolbar-card">
+        <div class="switcher">
+          <button id="prev-option-btn" type="button" class="btn btn-ghost" disabled>Previous</button>
+          <span id="option-counter" class="counter">No timetable loaded</span>
+          <button id="next-option-btn" type="button" class="btn btn-ghost" disabled>Next</button>
+        </div>
+
+        <form id="save-form" class="save-form">
+          <label for="timetable-name" class="sr-only">Timetable Name</label>
+          <input
+            id="timetable-name"
+            type="text"
+            placeholder="Timetable name (e.g. Fall Plan A)"
+            maxlength="80"
+            required
+          >
+          <button id="save-timetable-btn" type="submit" class="btn btn-success" disabled>
+            Save Timetable
+          </button>
+        </form>
+      </div>
+
+      <div class="card grid-card">
+        <div id="grid-meta" class="grid-meta"></div>
+        <div class="grid-scroll">
+          <div id="timetable-grid" class="timetable-grid" aria-label="Weekly timetable Sun to Thu"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

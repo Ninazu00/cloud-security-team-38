@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Accounts · Class TT</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <div data-topbar></div>
+
+    <main class="page">
+      <h1>Accounts</h1>
+      <p class="muted" data-count>Loading…</p>
+
+      <div data-alert></div>
+
+      <section class="card">
+        <div class="row">
+          <label class="field">
+            <span>Search by email</span>
+            <input id="q" type="search" placeholder="part of an address" autocomplete="off" />
+          </label>
+
+          <label class="field field-narrow">
+            <span>Role</span>
+            <select id="role">
+              <option value="">Any</option>
+              <option value="student">Student</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+
+          <button class="btn" type="button" data-refresh>Refresh</button>
+        </div>
+
+        <p class="hint">
+          A role change takes effect on the next request, not on the next sign-in: the
+          server reads the role from the database. Changing a role also signs that person
+          out everywhere.
+        </p>
+      </section>
+
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Verified</th>
+            <th>Created</th>
+            <th>Set role</th>
+          </tr>
+        </thead>
+        <tbody data-rows></tbody>
+      </table>
+
+      <p class="empty" data-empty hidden>No accounts match that filter.</p>
+
+      <div class="row row-end">
+        <button class="btn" type="button" data-more hidden>Load more</button>
+      </div>
+    </main>
+
+    <script type="module" src="assets/admin.js"></script>
+  </body>
+</html>

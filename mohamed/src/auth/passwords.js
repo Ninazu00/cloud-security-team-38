@@ -75,20 +75,29 @@ function passwordPolicyProblem(password) {
   return null;
 }
 
-export function assertPasswordPolicy(password) {
+/**
+ * Refuse a password that breaks the policy.
+ *
+ * `field` names the input in the error, because the same rule guards a sign-up
+ * (`password`) and a reset (`newPassword`), and a 422 that points at a field the
+ * caller never sent is a 422 nobody can act on.
+ */
+export function assertPasswordPolicy(password, field = 'password') {
   switch (passwordPolicyProblem(password)) {
     case 'not-a-string':
-      throw unprocessable('VALIDATION_FAILED', 'Password must be a string.');
+      throw unprocessable('VALIDATION_FAILED', 'Password must be a string.', { field });
     case 'too-short':
       throw unprocessable(
         'VALIDATION_FAILED',
         `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`,
+        { field },
       );
     case 'too-long':
       throw unprocessable(
         'VALIDATION_FAILED',
         `Password must be at most ${PASSWORD_MAX_LENGTH} bytes `
           + `(received ${Buffer.byteLength(password, 'utf8')}).`,
+        { field },
       );
     default:
       return;

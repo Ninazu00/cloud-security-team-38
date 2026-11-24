@@ -69,9 +69,15 @@ export function createActionTokenStore({ query, now = () => Date.now() } = {}) {
     };
   }
 
-  /** True only for the caller that actually consumed it. */
-  async function markConsumed(id) {
-    const { rowCount } = await query(
+  /**
+   * True only for the caller that actually consumed it.
+   *
+   * Pass a transaction client to consume the token inside a wider transaction: a
+   * password reset must not leave the token spent if the password update fails.
+   */
+  async function markConsumed(id, client = null) {
+    const run = client ? (text, params) => client.query(text, params) : query;
+    const { rowCount } = await run(
       'update auth_tokens set consumed_at = now() where id = $1 and consumed_at is null',
       [id],
     );

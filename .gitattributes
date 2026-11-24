@@ -1,0 +1,16 @@
+# Normalise line endings to LF in the repository.
+#
+# Windows checkouts otherwise store CRLF, which breaks a container build (a
+# Dockerfile line ending in \r becomes part of the command) and any shell script
+# copied into a Linux image. The working tree gets LF everywhere, which every
+# editor on every platform handles.
+* text=auto eol=lf
+
+# Binary files must never be normalised.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary

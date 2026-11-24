@@ -1,7 +1,9 @@
 # API Contract — Catalogue & Accounts
 
 **Owner:** Mohamed Ayman — 239236
-**Version:** **1.4 — **, agreed 24 Nov 2026. Supersedes 1.0–1.3 (changelog at the end).
+**Callers:** Yehia (Timetable), Mohab (Compare & Share), my frontend
+**Base URL:** `http://localhost:8080` on floci locally; the deployed URL goes out at hand-off
+**Version:** **1.4 — FINAL**, agreed 24 Nov 2026. Supersedes 1.0–1.3 (changelog at the end).
 
 This document says each endpoint's input and output. Nothing else.
 
@@ -1002,6 +1004,29 @@ No token is issued and no session is created: the client logs in with the new pa
 | 422 | `VALIDATION_FAILED` | password fails the rules; `details.fields` names it (the password is never echoed) |
 
 **What a reset changes.** In one transaction: the password hash, `emailVerifiedAt` if it was null, `consumed_at` on the token, and every row in `sessions` for that user revoked — all families, on every device, including the one asking. A "your password was changed" mail is then queued through the same outbox, so the real owner learns about it even if the attacker initiated it. The lockout counter is deliberately **not** cleared: a reset is not proof of good behaviour, and clearing it would hand an attacker a way to wipe their attempts.
+
+---
+
+# Not in this contract
+
+Named explicitly so that their absence is a decision rather than an oversight, and so nobody builds half of one.
+
+**Promoted since v1.2:** email verification and password reset moved out of this table into §7 and §8.
+
+| absent | why |
+|---|---|
+| MFA (TOTP + recovery codes) | **deferred, not dropped.** Fully designed in `docs/13-auth-extensions.md` §5, including the TOTP verifier and its RFC 6238 test vectors. It needs a new credential state on login, ten recovery codes, and an enrolment UI — a week of work that adds nothing the brief asks for and would delay the demo. It goes in as section 9 of this document when it does, not before. |
+| SSO / OAuth login | a second identity provider inside a three-service coursework project, for a benefit the brief does not ask for. |
+| SMS one-time codes | a paid gateway and a phone number per user. TOTP gives the same second factor offline. |
+| email OTP as a second factor | it is the same channel the reset flow already trusts, so mailbox compromise defeats both. Two factors that fall together are one factor. |
+| hard delete of courses or sections | archiving preserves the ids Yehia and Mohab have already stored. A real delete would silently blank their saved timetables. |
+| enrollment (who takes what) | that is Yehia's service. This one stores the catalogue, not the choices. |
+| `.ics` / calendar export | also Yehia's — the export is of a *timetable*, and a timetable is a selection of sections, not the catalogue. |
+| changing an email address | it needs its own verification dance (prove you hold the *old* mailbox, then the new one) and interacts with the login identity of every token already issued. Out of scope. |
+| bulk delete / bulk update of courses | the CSV import is the only bulk path, and it is admin-only and audited. |
+| an unlock endpoint | an admin who can clear a lockout by hand is an admin who can clear it for an attacker. The lockout expires on its own in 15 minutes. |
+
+If one of these becomes necessary, it goes in as a new section with its own errors, not as a quiet extra route.
 
 ---
 

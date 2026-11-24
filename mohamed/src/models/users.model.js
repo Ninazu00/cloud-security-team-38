@@ -60,6 +60,42 @@ export function createUsersModel({ query, withTransaction, now = () => Date.now(
   }
 
   /**
+   * Insert a self-registered account. Returns null when the address already
+   * exists, which is the interesting case: the caller must answer identically
+   * either way, so "does this email have an account" is not learnable by
+   * registering it.
+   *
+   * `email_verified_at` stays null: the account exists but cannot sign in until
+   * the address is confirmed.
+   */
+  async function create({ email, passwordHash }) {
+    const { rows } = await query(
+      `insert into users (email, password_hash)
+       values ($1, $2)
+       on conflict (lower(email)) do nothing
+       returning ${COLUMNS}`,
+      [email, passwordHash],
+    );
+
+    return toUser(rows[0]);
+  }
+
+  /**
+   * Confirm an address. `coalesce` keeps the first confirmation: verifying twice
+   * must not move the timestamp that `/api/auth/me` reports.
+   */
+  async function markEmailVerified(userId) {
+    const { rows } = await query(
+      `update users set email_verified_at = coalesce(email_verified_at, now())
+        where id = $1
+        returning ${COLUMNS}`,
+      [userId],
+    );
+
+    return toUser(rows[0]);
+  }
+
+  /**
    * Count one failed password. Returns the account's state after the attempt, so
    * the caller can distinguish "wrong password" from "wrong password, and you are
    * now locked out".
@@ -137,6 +173,8 @@ export function createUsersModel({ query, withTransaction, now = () => Date.now(
   return {
     findByEmail,
     findById,
+    create,
+    markEmailVerified,
     recordFailedAttempt,
     clearFailures,
     setPasswordHash,

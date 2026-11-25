@@ -14,7 +14,7 @@ const DAY_MAP = {
   "6": "Sat", sat: "Sat", saturday: "Sat",
 };
 
-function normalizeDay(rawDay) {
+export function normalizeDay(rawDay) {
   if (rawDay === undefined || rawDay === null) return rawDay;
   const key = String(rawDay).trim().toLowerCase();
   return DAY_MAP[key] || String(rawDay).trim();
@@ -30,8 +30,19 @@ function normalizeTime(rawTime) {
 
 export function isSectionArchived(raw) {
   if (!raw) return false;
+  if (raw.archivedAt !== undefined && raw.archivedAt !== null && raw.archivedAt !== "") {
+    return true;
+  }
   if (raw.archived === true || raw.isArchived === true) return true;
   return String(raw.status || "").trim().toUpperCase() === "ARCHIVED";
+}
+
+function normalizeMeeting(rawSlot, fallbackRoom = null) {
+  const day = normalizeDay(rawSlot.day ?? rawSlot.dayOfWeek);
+  const start = normalizeTime(rawSlot.start ?? rawSlot.startTime);
+  const end = normalizeTime(rawSlot.end ?? rawSlot.endTime);
+  const room = rawSlot.room ?? rawSlot.location ?? fallbackRoom ?? null;
+  return room ? { day, start, end, room } : { day, start, end };
 }
 
 export function normalizeSection(raw) {
@@ -40,18 +51,29 @@ export function normalizeSection(raw) {
     ? "ARCHIVED"
     : String(raw.status || "ACTIVE").trim().toUpperCase();
 
+  const fallbackRoom = raw.room ?? raw.location ?? null;
+  const rawTimes = Array.isArray(raw.times)
+    ? raw.times
+    : raw.day || raw.dayOfWeek
+      ? [raw]
+      : [];
+
+  const times = rawTimes
+    .map((slot) => normalizeMeeting(slot, fallbackRoom))
+    .filter((slot) => slot.day && slot.start && slot.end);
+
+  const rawType = raw.type ?? raw.sectionType ?? "lecture";
+  const type = String(rawType).trim().toLowerCase() || "lecture";
+
   return {
     id: String(raw.id ?? raw.sectionId),
     courseId: String(raw.courseId ?? raw.course?.id ?? ""),
     courseCode: raw.courseCode ?? raw.course?.code ?? null,
     courseTitle: raw.courseTitle ?? raw.course?.title ?? null,
-    sectionNumber: raw.sectionNumber ?? raw.code ?? raw.name ?? null,
-    day: normalizeDay(raw.day ?? raw.dayOfWeek),
-    start: normalizeTime(raw.start ?? raw.startTime),
-    end: normalizeTime(raw.end ?? raw.endTime),
-    room: raw.room ?? raw.location ?? null,
-    instructor: raw.instructor ?? null,
+    sectionCode: raw.sectionCode ?? raw.code ?? raw.sectionNumber ?? raw.name ?? null,
+    type,
     status,
+    times,
   };
 }
 
@@ -59,14 +81,23 @@ function loadMockSections() {
   return JSON.parse(fs.readFileSync(fixtureUrl, "utf8")).map(normalizeSection);
 }
 
-async function fetchCataloguePaginated(baseParams, authHeader) {
-  const baseUrl = (process.env.CATALOGUE_URL || "http://127.0.0.1:3001").replace(/\/$/, "");
+function getBaseUrl() {
+  return (process.env.CATALOGUE_URL || "http://127.0.0.1:3001").replace(/\/$/, "");
+}
+
+function extractItems(data) {
+  return Array.isArray(data) ? data : data.items || data.sections || [];
+}
+
+async function fetchCatalogueByCourseId(courseId, authHeader) {
+  const baseUrl = getBaseUrl();
   const allItems = [];
   let page = 1;
   let cursor = null;
 
   while (page <= MAX_PAGES) {
-    const params = new URLSearchParams(baseParams);
+    const params = new URLSearchParams();
+    params.set("courseId", String(courseId));
     params.set("limit", String(PAGE_LIMIT));
     if (cursor) {
       params.set("cursor", cursor);
@@ -84,7 +115,7 @@ async function fetchCataloguePaginated(baseParams, authHeader) {
     }
 
     const data = await res.json();
-    const rawItems = Array.isArray(data) ? data : data.items || data.sections || [];
+    const rawItems = extractItems(data);
     allItems.push(...rawItems);
 
     const nextCursor = data.nextCursor ?? data.meta?.nextCursor ?? null;
@@ -118,7 +149,7 @@ export async function getSectionsByCourseIds(courseIds, authHeader) {
   }
 
   const results = await Promise.all(
-    ids.map((id) => fetchCataloguePaginated({ courseId: id }, authHeader))
+    ids.map((id) => fetchCatalogueByCourseId(id, authHeader))
   );
   const byId = new Map();
   for (const list of results) {
@@ -136,5 +167,18 @@ export async function getSectionsByIds(sectionIds, authHeader) {
     const set = new Set(ids);
     return loadMockSections().filter((s) => set.has(String(s.id)));
   }
-  return fetchCataloguePaginated({ ids: ids.join(",") }, authHeader);
+
+  // Never send limit or page when querying by ids (Catalogue rejects with HTTP 400)
+  const baseUrl = getBaseUrl();
+  const query = `ids=${encodeURIComponent(ids.join(","))}`;
+  const res = await fetch(`${baseUrl}/api/sections?${query}`, {
+    headers: { Authorization: authHeader },
+  });
+  if (!res.ok) {
+    const err = new Error(`Catalogue returned ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  return extractItems(data).map(normalizeSection);
 }

@@ -29,7 +29,7 @@ awsl iam attach-role-policy --role-name "$ROLE_NAME" \
 echo "2. Building lambda.zip..."
 npm run zip
 
-ENV_VARS="Variables={DEP_MODE=mock,NODE_ENV=production,TIMETABLES_TABLE=timetables,SECTION_INDEX_TABLE=section_timetables,CORS_ORIGINS=http://localhost:4566,TERM_START_DATE=2026-09-20,TERM_END_DATE=2026-12-24,TIMEZONE=Africa/Cairo}"
+ENV_VARS="Variables={DEP_MODE=mock,NODE_ENV=production,TIMETABLES_TABLE=timetables,SECTION_INDEX_TABLE=section_timetables,CORS_ORIGINS=http://localhost:4566,TERM_START_DATE=2026-09-20,TERM_END_DATE=2026-12-24,TIMEZONE=Africa/Cairo,JWT_ISSUER=class-tt,JWT_AUDIENCE=class-tt}"
 
 echo "3. Deploying Lambda function ($FUNC_NAME)..."
 if awsl lambda get-function --function-name "$FUNC_NAME" >/dev/null 2>&1; then

@@ -4,50 +4,97 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import jwt from "jsonwebtoken";
-import { normalizeSection, getSectionsByCourseIds } from "../../src/clients/sectionsClient.js";
+import {
+  normalizeSection,
+  getSectionsByCourseIds,
+  getSectionsByIds,
+} from "../../src/clients/sectionsClient.js";
+import { generateTimetables } from "../../src/domain/generator.js";
+import { findClashes } from "../../src/domain/clash.js";
 import { requireAuth, clearPublicKeyCache } from "../../src/middleware/auth.js";
 
-test("normalizeSection maps Mohamed live Catalogue fields to canonical shape", () => {
+test("normalizeSection preserves times[], type, sectionCode, and Fri/Sat days", () => {
   const normalized = normalizeSection({
     id: 42,
-    course: { id: "CS401", code: "CS401", title: "Cloud Security" },
-    sectionNumber: "G1",
-    dayOfWeek: "SUNDAY",
-    startTime: "09:00:00",
-    endTime: "10:30:00",
-    location: "B-204",
-    instructor: "Dr. Ahmed",
-    status: "active",
+    course: { id: "1", code: "CS401", title: "Cloud Security" },
+    sectionCode: "G1",
+    type: "LECTURE",
+    archivedAt: null,
+    times: [
+      { dayOfWeek: "SUNDAY", startTime: "09:00:00", endTime: "10:30:00" },
+      { dayOfWeek: "FRIDAY", startTime: "11:00:00", endTime: "12:30:00" },
+      { dayOfWeek: "SATURDAY", startTime: "13:00:00", endTime: "14:30:00" },
+    ],
   });
 
   assert.deepEqual(normalized, {
     id: "42",
-    courseId: "CS401",
+    courseId: "1",
     courseCode: "CS401",
     courseTitle: "Cloud Security",
-    sectionNumber: "G1",
-    day: "Sun",
-    start: "09:00",
-    end: "10:30",
-    room: "B-204",
-    instructor: "Dr. Ahmed",
+    sectionCode: "G1",
+    type: "lecture",
     status: "ACTIVE",
+    times: [
+      { day: "Sun", start: "09:00", end: "10:30" },
+      { day: "Fri", start: "11:00", end: "12:30" },
+      { day: "Sat", start: "13:00", end: "14:30" },
+    ],
   });
 });
 
-test("normalizeSection marks archived sections with status ARCHIVED", () => {
-  const fromBool = normalizeSection({
+test("normalizeSection detects archived sections via archivedAt", () => {
+  const archived = normalizeSection({
     id: "s1",
-    course: { id: "c1" },
-    dayOfWeek: "Mon",
-    startTime: "11:00",
-    endTime: "12:30",
-    archived: true,
+    course: { id: "1" },
+    sectionCode: "G1",
+    type: "lab",
+    archivedAt: "2026-11-25T10:00:00.000Z",
+    times: [{ dayOfWeek: "Mon", startTime: "11:00", endTime: "12:30" }],
   });
-  assert.equal(fromBool.status, "ARCHIVED");
+  assert.equal(archived.status, "ARCHIVED");
 });
 
-test("getSectionsByCourseIds follows Catalogue pagination and filters archived sections", async () => {
+test("getSectionsByIds does NOT send limit or page query params", async () => {
+  const prevMode = process.env.DEP_MODE;
+  const prevFetch = globalThis.fetch;
+  process.env.DEP_MODE = "live";
+  process.env.CATALOGUE_URL = "http://mock-catalogue.local";
+
+  let capturedUrl = null;
+  globalThis.fetch = async (url) => {
+    capturedUrl = new URL(String(url));
+    return {
+      ok: true,
+      json: async () => ({
+        items: [
+          {
+            id: "42",
+            course: { id: "1", code: "CS401", title: "Cloud Security" },
+            sectionCode: "G1",
+            type: "lecture",
+            archivedAt: null,
+            times: [{ dayOfWeek: "Sun", startTime: "09:00", endTime: "10:30" }],
+          },
+        ],
+      }),
+    };
+  };
+
+  try {
+    const sections = await getSectionsByIds(["42", "43"], "Bearer tok");
+    assert.equal(capturedUrl.searchParams.get("ids"), "42,43");
+    assert.equal(capturedUrl.searchParams.has("limit"), false);
+    assert.equal(capturedUrl.searchParams.has("page"), false);
+    assert.equal(sections.length, 1);
+    assert.equal(sections[0].times[0].day, "Sun");
+  } finally {
+    globalThis.fetch = prevFetch;
+    process.env.DEP_MODE = prevMode;
+  }
+});
+
+test("getSectionsByCourseIds paginates, filters archivedAt, and generator picks lecture + lab + tutorial", async () => {
   const prevMode = process.env.DEP_MODE;
   const prevFetch = globalThis.fetch;
   process.env.DEP_MODE = "live";
@@ -62,8 +109,25 @@ test("getSectionsByCourseIds follows Catalogue pagination and filters archived s
         ok: true,
         json: async () => ({
           items: [
-            { id: "s1", course: { id: "c1" }, dayOfWeek: "Sun", startTime: "09:00:00", endTime: "10:00:00", status: "ACTIVE" },
-            { id: "s2", course: { id: "c1" }, dayOfWeek: "Mon", startTime: "09:00:00", endTime: "10:00:00", status: "ARCHIVED" },
+            {
+              id: "lec-1",
+              course: { id: "1", code: "CS401", title: "Cloud Security" },
+              sectionCode: "L1",
+              type: "lecture",
+              archivedAt: null,
+              times: [
+                { dayOfWeek: "Sun", startTime: "09:00", endTime: "10:30" },
+                { dayOfWeek: "Tue", startTime: "09:00", endTime: "10:30" },
+              ],
+            },
+            {
+              id: "lab-archived",
+              course: { id: "1", code: "CS401", title: "Cloud Security" },
+              sectionCode: "LAB-OLD",
+              type: "lab",
+              archivedAt: "2026-11-20T00:00:00Z",
+              times: [{ dayOfWeek: "Wed", startTime: "09:00", endTime: "10:30" }],
+            },
           ],
           totalPages: 2,
         }),
@@ -73,7 +137,30 @@ test("getSectionsByCourseIds follows Catalogue pagination and filters archived s
       ok: true,
       json: async () => ({
         items: [
-          { id: "s3", course: { id: "c1" }, dayOfWeek: "Tue", startTime: "10:00:00", endTime: "11:30:00", status: "ACTIVE" },
+          {
+            id: "lab-clash",
+            course: { id: "1", code: "CS401", title: "Cloud Security" },
+            sectionCode: "LAB1",
+            type: "lab",
+            archivedAt: null,
+            times: [{ dayOfWeek: "Tue", startTime: "09:30", endTime: "11:00" }],
+          },
+          {
+            id: "lab-ok",
+            course: { id: "1", code: "CS401", title: "Cloud Security" },
+            sectionCode: "LAB2",
+            type: "lab",
+            archivedAt: null,
+            times: [{ dayOfWeek: "Fri", startTime: "10:00", endTime: "11:30" }],
+          },
+          {
+            id: "tut-ok",
+            course: { id: "1", code: "CS401", title: "Cloud Security" },
+            sectionCode: "T1",
+            type: "tutorial",
+            archivedAt: null,
+            times: [{ dayOfWeek: "Sat", startTime: "12:00", endTime: "13:00" }],
+          },
         ],
         totalPages: 2,
       }),
@@ -81,18 +168,26 @@ test("getSectionsByCourseIds follows Catalogue pagination and filters archived s
   };
 
   try {
-    const sections = await getSectionsByCourseIds(["c1"], "Bearer tok");
+    const sections = await getSectionsByCourseIds(["1"], "Bearer tok");
     assert.equal(requestedUrls.length, 2);
-    assert.deepEqual(sections.map((s) => s.id), ["s1", "s3"]);
-    assert.equal(sections[0].courseId, "c1");
-    assert.equal(sections[0].start, "09:00");
+    assert.equal(sections.some((s) => s.id === "lab-archived"), false);
+
+    const generated = generateTimetables(["1"], sections);
+    assert.equal(generated.ok, true);
+    assert.equal(generated.timetables.length, 1);
+    const chosen = generated.timetables[0].sections;
+    assert.deepEqual(
+      chosen.map((s) => `${s.type}:${s.id}`).sort(),
+      ["lab:lab-ok", "lecture:lec-1", "tutorial:tut-ok"]
+    );
+    assert.equal(findClashes(chosen).length, 0);
   } finally {
     globalThis.fetch = prevFetch;
     process.env.DEP_MODE = prevMode;
   }
 });
 
-test("requireAuth validates JWT issuer, audience, and allowed roles", async () => {
+test("requireAuth validates JWT issuer class-tt, audience class-tt, and allowed roles", async () => {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
     modulusLength: 2048,
     publicKeyEncoding: { type: "spki", format: "pem" },
@@ -109,8 +204,8 @@ test("requireAuth validates JWT issuer, audience, and allowed roles", async () =
   const prevAud = process.env.JWT_AUDIENCE;
   const prevMode = process.env.DEP_MODE;
   process.env.DEP_MODE = "mock";
-  process.env.JWT_ISSUER = "catalogue-service";
-  process.env.JWT_AUDIENCE = "timetable-service";
+  process.env.JWT_ISSUER = "class-tt";
+  process.env.JWT_AUDIENCE = "class-tt";
 
   const runAuth = (token) =>
     new Promise((resolve) => {
@@ -126,23 +221,23 @@ test("requireAuth validates JWT issuer, audience, and allowed roles", async () =
   try {
     const valid = jwt.sign({ sub: "u1", role: "student" }, privateKey, {
       algorithm: "RS256",
-      issuer: "catalogue-service",
-      audience: "timetable-service",
+      issuer: "class-tt",
+      audience: "class-tt",
     });
     const wrongIss = jwt.sign({ sub: "u1", role: "student" }, privateKey, {
       algorithm: "RS256",
-      issuer: "evil-issuer",
-      audience: "timetable-service",
+      issuer: "other-iss",
+      audience: "class-tt",
     });
     const wrongAud = jwt.sign({ sub: "u1", role: "student" }, privateKey, {
       algorithm: "RS256",
-      issuer: "catalogue-service",
-      audience: "other-service",
+      issuer: "class-tt",
+      audience: "other-aud",
     });
     const badRole = jwt.sign({ sub: "u1", role: "guest" }, privateKey, {
       algorithm: "RS256",
-      issuer: "catalogue-service",
-      audience: "timetable-service",
+      issuer: "class-tt",
+      audience: "class-tt",
     });
 
     assert.equal((await runAuth(valid)).status, 200);

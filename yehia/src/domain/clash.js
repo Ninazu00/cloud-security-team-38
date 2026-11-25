@@ -4,7 +4,9 @@ export function toMinutes(hhmm) {
 }
 
 export function timesClash(slotA, slotB) {
-  if (slotA.day !== slotB.day) return false;
+  if (String(slotA.day).trim().toLowerCase() !== String(slotB.day).trim().toLowerCase()) {
+    return false;
+  }
   const startA = toMinutes(slotA.start);
   const endA = toMinutes(slotA.end);
   const startB = toMinutes(slotB.start);

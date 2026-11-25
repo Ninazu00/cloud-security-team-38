@@ -81,8 +81,8 @@ export async function requireAuth(req, res, next) {
   const token = header.slice(7).trim();
   const isLive = (process.env.DEP_MODE || "mock") === "live";
   const verifyOptions = { algorithms: ["RS256"] };
-  const issuer = process.env.JWT_ISSUER || (isLive ? "catalogue-service" : undefined);
-  const audience = process.env.JWT_AUDIENCE || (isLive ? "timetable-service" : undefined);
+  const issuer = process.env.JWT_ISSUER || (isLive ? "class-tt" : undefined);
+  const audience = process.env.JWT_AUDIENCE || (isLive ? "class-tt" : undefined);
   if (issuer) verifyOptions.issuer = issuer;
   if (audience) verifyOptions.audience = audience;
 

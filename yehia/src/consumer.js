@@ -17,6 +17,7 @@ export async function handler(event) {
     const sectionId = detail?.sectionId || detail?.id;
     const isArchived =
       detailType === "section.archived" ||
+      (detail?.archivedAt !== undefined && detail?.archivedAt !== null && detail?.archivedAt !== "") ||
       detail?.archived === true ||
       String(detail?.status || "").toUpperCase() === "ARCHIVED";
 

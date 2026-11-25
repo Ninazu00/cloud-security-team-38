@@ -1,6 +1,6 @@
 // Configuration is read once, validated once, and exported frozen. Anything
 // missing or malformed stops the process at boot instead of failing on the
-// first request — a container that cannot work should crash-loop, not serve
+// first request - a container that cannot work should crash-loop, not serve
 // 500s.
 
 const env = process.env;
@@ -40,7 +40,7 @@ export const config = Object.freeze({
   databaseUrl: required('DATABASE_URL'),
 
   // A pooled endpoint cannot take one connection per task per request, so the
-  // pool is deliberately small: tasks × pool max must stay under the endpoint's
+  // pool is small: tasks × pool max must stay under the endpoint's
   // connection limit.
   dbPoolMax: integer('DB_POOL_MAX', 5),
   dbConnectTimeoutMs: integer('DB_CONNECT_TIMEOUT_MS', 2000),
@@ -75,7 +75,7 @@ export const config = Object.freeze({
   turnstileSecret: optional('TURNSTILE_SECRET', null),
 
   // Empty by default: the frontend is served from this same origin. If it is ever
-  // hosted elsewhere, name the exact origins — the refresh cookie is credentialed,
+  // hosted elsewhere, name the exact origins - the refresh cookie is credentialed,
   // so a wildcard is both unsafe and rejected by browsers.
   corsOrigins: optional('CORS_ORIGINS', '')
     .split(',')
@@ -83,7 +83,7 @@ export const config = Object.freeze({
     .filter(Boolean),
 
   // --- outgoing mail --------------------------------------------------------
-  // The From address must be a verified identity in SES, which is why the runbook
+  // The From address must be a verified identity in SES, so the runbook
   // verifies it before the first sign-up rather than letting the first send fail.
   mailFrom: optional('MAIL_FROM', 'noreply@class-tt.local'),
 
@@ -109,6 +109,14 @@ export const config = Object.freeze({
   // 100000 is what the load-test notes do, because a k6 run is one client.
   rateLimitWindowMs: integer('RATE_LIMIT_WINDOW_MS', 60_000),
   rateLimitMax: integer('RATE_LIMIT_MAX', 60),
+
+  // Probes answer only callers whose TCP peer is a private address; empty means
+  // "use the built-in private ranges". Narrow it to the VPC CIDR once the
+  // network is fixed and there is only one private range to trust.
+  probeAllowCidrs: optional('PROBE_ALLOW_CIDRS', '')
+    .split(',')
+    .map((cidr) => cidr.trim())
+    .filter(Boolean),
 
   awsRegion: optional('AWS_REGION', 'us-east-1'),
   awsEndpointUrl: optional('AWS_ENDPOINT_URL', null),

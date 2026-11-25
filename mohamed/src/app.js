@@ -1,4 +1,4 @@
-// The Express app, with no `listen` and no process-level concerns — that split
+// The Express app, with no `listen` and no process-level concerns - that split
 // keeps every route testable on an ephemeral port without touching a real socket
 // or a real database. Everything below is transport-agnostic.
 
@@ -10,6 +10,7 @@ import { log } from './logger.js';
 import { ApiError, errorBody, notFound } from './errors.js';
 import { healthRouter } from './routes/health.js';
 import { cors } from './http/cors.js';
+import { createProbeGuard } from './http/probe-guard.js';
 import { createRateLimit } from './http/rate-limit.js';
 import { securityHeaders } from './http/security.js';
 
@@ -33,12 +34,14 @@ export function createApp({
   // Tests pass their own limiter so a suite can use a limit of three instead of
   // sixty, and so the window can be short.
   rateLimit = null,
+  // Tests pass their own guard so a suite can pretend to be a public caller.
+  probeGuard = null,
 } = {}) {
   const app = express();
 
   // Behind an ALB the client address arrives in X-Forwarded-For; without this
   // req.ip is the proxy's address and every rate limit keys on one value.
-  // `1` means "trust exactly one hop" — with `true`, a client could spoof its
+  // `1` means "trust exactly one hop" - with `true`, a client could spoof its
   // own address by sending the header itself.
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
@@ -47,7 +50,7 @@ export function createApp({
   app.use(cors({ origins: allowedOrigins }));
 
   // Correlation id: accept a sane inbound one so a client-visible reference
-  // matches the log line, otherwise mint one. Validation matters — the value
+  // matches the log line, otherwise mint one. Validation matters - the value
   // ends up in logs and must not be able to forge a second log line.
   app.use((req, res, next) => {
     const inbound = req.get('x-request-id');
@@ -78,9 +81,18 @@ export function createApp({
     next();
   });
 
+  // Probes are unauthenticated and exempt from the limiter, so they get their own
+  // gate: only a caller whose TCP peer is a private address may ask. Scoped to the
+  // probe paths so the API is untouched, and mounted before the limiter so a
+  // refused probe costs nothing.
+  const { guard } =
+    probeGuard ??
+    createProbeGuard({ cidrs: config.probeAllowCidrs.length ? config.probeAllowCidrs : undefined });
+  app.use((req, res, next) => (PROBE_PATHS.has(req.path) ? guard(req, res, next) : next()));
+
   // Rate limiting sits before the body parsers on purpose: a client that is over
   // its budget should be refused before the process allocates anything for it.
-  // Probes are exempt — the load balancer calls them every 15 seconds and a 429
+  // Probes are exempt - the load balancer calls them every 15 seconds and a 429
   // there would take the task out of rotation for being asked whether it is alive.
   app.use(
     rateLimit ??
@@ -107,7 +119,7 @@ export function createApp({
   if (auth) app.use(auth.router);
 
   // The catalogue, likewise composed outside this file. It needs auth's guards,
-  // which is why it is built after auth in `server.js` and passed in ready-made.
+  // so it is built after auth in `server.js` and passed in ready-made.
   if (catalogue) app.use(catalogue.router);
 
   // Admin endpoints (user list, role changes) are their own module for the same
@@ -115,7 +127,7 @@ export function createApp({
   // catalogue, and they reuse auth's guards rather than re-implementing them.
   if (admin) app.use(admin.router);
 
-  // The frontend, when it is served from this origin — which is the deployment
+  // The frontend, when it is served from this origin - which is the deployment
   // shape the contract assumes, because the refresh cookie is `SameSite=Strict`
   // and a different site would silently drop it. Static files sit *after* the API
   // routers so a missing asset can never shadow a route, and *before* the 404 so
@@ -124,7 +136,7 @@ export function createApp({
     app.use(express.static(staticDir, { index: 'index.html', etag: true, maxAge: 0 }));
   }
 
-  // Routes are mounted here as they are built — above this line. Everything that
+  // Routes are mounted here as they are built - above this line. Everything that
   // falls through is a 404 in the same envelope as any other error, so no client
   // ever sees Express's HTML page.
   app.use((_req, _res, next) => next(notFound('NOT_FOUND', 'No such endpoint.')));

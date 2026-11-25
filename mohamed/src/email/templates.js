@@ -6,7 +6,7 @@
  * data is a template you can inject into. The only substitution is a URL we
  * built ourselves.
  *
- * The text part is not decoration — it is what a client shows when HTML is
+ * The text part is not decoration - it is what a client shows when HTML is
  * unavailable, and it is what a test asserts against.
  */
 
@@ -64,7 +64,7 @@ export function verificationEmail({ verifyUrl, expiresInHours = 24 }) {
 
 /**
  * Reset mail. The link carries a single-use token and lands on the frontend, which
- * posts it — a token in a URL that a browser navigates to ends up in history and in
+ * posts it - a token in a URL that a browser navigates to ends up in history and in
  * any proxy log on the way.
  */
 export function passwordResetEmail({ resetUrl, expiresInMinutes = 30 }) {
@@ -75,7 +75,7 @@ export function passwordResetEmail({ resetUrl, expiresInMinutes = 30 }) {
     resetUrl,
     '',
     `The link works once and expires in ${expiresInMinutes} minutes.`,
-    'If you did not ask for this, ignore the message — your password is unchanged.',
+    'If you did not ask for this, ignore the message - your password is unchanged.',
   ].join('\n');
 
   return {
@@ -86,7 +86,7 @@ export function passwordResetEmail({ resetUrl, expiresInMinutes = 30 }) {
       [
         'Open the link below to choose a new password.',
         `It works once and expires in ${expiresInMinutes} minutes.`,
-        'If you did not ask for this, ignore the message — your password is unchanged.',
+        'If you did not ask for this, ignore the message - your password is unchanged.',
       ],
       { url: resetUrl, label: 'Choose a new password' },
     ),

@@ -21,7 +21,7 @@ const FROM_SECTIONS = `
   from sections s
   join courses c on c.id = s.course_id`;
 
-/** The embedders live: a caller renders "CS101 — Introduction to Programming — L1". */
+/** The embedders live: a caller renders "CS101 - Introduction to Programming - L1". */
 function toCourse(row) {
   return { id: row.course_id, code: row.course_code, title: row.course_title };
 }
@@ -186,7 +186,7 @@ export function createSectionsModel({ query, withTransaction }) {
   /**
    * The room check, in the one order that works:
    *
-   *   lock, then query. `SELECT … FOR UPDATE` cannot help here — the row that
+   *   lock, then query. `SELECT … FOR UPDATE` cannot help here - the row that
    *   would conflict does not exist yet, so there is nothing to lock. A
    *   transaction-scoped advisory lock keyed on the room serialises the two
    *   writers that would otherwise both see "free" and both insert.

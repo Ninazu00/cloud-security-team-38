@@ -1,7 +1,7 @@
 import { hashPassword } from '../auth/passwords.js';
 
 /**
- * The `users` table. SQL only — no policy, no HTTP, no token logic.
+ * The `users` table. SQL only - no policy, no HTTP, no token logic.
  *
  * The lockout lives here rather than in memory for one reason: four ECS tasks
  * behind a load balancer each have their own memory, so a counter in-process

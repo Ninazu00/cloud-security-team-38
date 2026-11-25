@@ -81,7 +81,7 @@ export function createImportsService({ imports, courses, sections, withTransacti
 
       // One lookup per block. A section that clashes on Tuesday must report the
       // Tuesday, and blocks inserted earlier in this transaction are visible here
-      // — so a file that books one room twice is caught against itself.
+      // - so a file that books one room twice is caught against itself.
       let clash = null;
       for (const block of section.times) {
         clash = await sections.findRoomConflict(client, {
@@ -188,7 +188,7 @@ export function createImportsService({ imports, courses, sections, withTransacti
 
   async function list(query) {
     // A value that parsed but is not one of the two statuses is a rule broken,
-    // not a request we could not read — the same 422 the other filters use.
+    // not a request we could not read - the same 422 the other filters use.
     if (query.status !== undefined && !STATUSES.includes(query.status)) {
       throw unprocessable('VALIDATION_FAILED', `status must be one of ${STATUSES.join(', ')}.`, { field: 'status' });
     }

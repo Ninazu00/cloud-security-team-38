@@ -6,7 +6,7 @@
  * is the difference between finding out about a clash now and finding out after
  * the file has been refused for real.
  *
- * A refused file is still recorded (`status: failed`) — that is deliberate, so
+ * A refused file is still recorded (`status: failed`) - that is deliberate, so
  * "it was rejected" leaves evidence instead of vanishing.
  */
 
@@ -150,11 +150,11 @@ function historyRow(item) {
     'tr',
     {},
     h('td', { class: 'small' }, when),
-    h('td', { class: 'mono small' }, item.filename ?? '—'),
+    h('td', { class: 'mono small' }, item.filename ?? '-'),
     h('td', {}, badge),
     h('td', {}, String(item.rowCount ?? 0)),
     h('td', {}, String(item.errorCount ?? 0)),
-    h('td', { class: 'small' }, item.uploadedBy?.email ?? '—'),
+    h('td', { class: 'small' }, item.uploadedBy?.email ?? '-'),
     h('td', { class: 'actions' }, h('button', { class: 'btn secondary small', type: 'button', onclick: () => void showDetail(item.id) }, 'Report')),
   );
 }

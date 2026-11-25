@@ -1,6 +1,6 @@
 # Auth notes
 
-Things I want to be able to say correctly in the report and to the other two.
+Notes for the report, and for the other two.
 
 ## Four different "identity" things
 
@@ -30,7 +30,7 @@ The tokens are signed with RS256 and the public key is published at
 for ten minutes, and check signatures themselves.
 
 - Only the public key is published, so this is safe, and it is the reason I did
-  not use HS256 — a shared secret would let every verifier mint tokens, and then
+  not use HS256: a shared secret would let every verifier mint tokens, and then
   there would be three identity providers instead of one.
 - The upside and the downside are the same fact: if my service is down, tokens
   that were already issued keep working. But a token cannot be withdrawn either,
@@ -39,7 +39,7 @@ for ten minutes, and check signatures themselves.
   over `header.payload`, `iss` and `aud` must both be `class-tt`, and `exp` must
   be in the future with at most 60 seconds of clock skew.
 
-One audience for all three services is a deliberate simplification. It means a
+One audience for all three services is a simplification. It means a
 stolen token works anywhere in the product, and it means I cannot tell which
 service a token was meant for.
 
@@ -50,7 +50,7 @@ decrypt it, turns the result into a private key, and drops the PEM string. The
 key lives in memory for the life of the task; there is no file and no environment
 variable holding it.
 
-Reading the secret alone is useless — it is ciphertext. Calling KMS alone gets
+Reading the secret alone is useless: it is ciphertext. Calling KMS alone gets
 nothing, because the task does not know which blob to decrypt. So an attacker
 needs both permissions, and both calls are logged.
 
@@ -58,15 +58,15 @@ If either call fails, the task does not start. A task that cannot sign is worse
 than a task that is not running, because it would answer logins it cannot
 actually serve.
 
-Limits I will say out loud rather than hide: a core dump or a debugger can read
+Limits I know about: a core dump or a debugger can read
 the key out of memory, a compromised process owns it, and there is no CloudTrail
 on floci, so on the emulator the evidence is the `keystore.unsealed` log line
 rather than an audit trail.
 
-Per-token signing with `kms:Sign` also works — I tested it — but it puts a network
+Per-token signing with `kms:Sign` also works, and I tested it, but it puts a network
 call on the login path, so it stays an option rather than the design.
 
-## Decisions worth defending
+## Decisions and their costs
 
 | Decision | What it buys | What it costs |
 |---|---|---|

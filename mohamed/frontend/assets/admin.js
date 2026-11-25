@@ -8,7 +8,7 @@ import { fill, fmtDate, h, hideAlert, showAlert } from './dom.js';
  * Two things worth knowing while reading this:
  *
  * 1. The role control sends a PATCH and then re-renders from the server's answer.
- *    It never assumes the write worked, and it never hides the row on success —
+ *    It never assumes the write worked, and it never hides the row on success -
  *    what you see afterwards is what the database says.
  * 2. The button is disabled for your own account. That is a courtesy: the API
  *    refuses a self role change with 403 whatever the browser sends.

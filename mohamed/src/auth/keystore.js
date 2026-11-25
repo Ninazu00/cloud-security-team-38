@@ -32,7 +32,7 @@ import { readFile } from 'node:fs/promises';
  * previous key until the longest token lifetime has passed, but only the task that
  * unseals `current` can mint new ones.
  *
- * This module deliberately knows nothing about the AWS SDK. It takes two small
+ * This module knows nothing about the AWS SDK. It takes two small
  * plain functions (`secrets.getSecretValue`, `kms.decrypt`), so unit tests run
  * offline against fakes and only `src/auth/aws-clients.js` imports the SDK.
  */
@@ -135,7 +135,7 @@ async function loadFromKms({ kmsKeyAlias, jwtSecretId, secrets, kms, log }) {
   const kid = jwkThumbprint(publicJwk);
 
   // If the secret also pins the public key, a mismatch means the ciphertext and the
-  // declared identity came from different keypairs — a swapped or half-rotated
+  // declared identity came from different keypairs - a swapped or half-rotated
   // secret. Fail rather than publish a kid that does not match the key behind it.
   if (current.kid && current.kid !== kid) {
     throw new Error(

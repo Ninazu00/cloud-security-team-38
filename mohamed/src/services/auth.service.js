@@ -20,11 +20,11 @@ import { turnstileFailed } from '../auth/turnstile.js';
  *     Argon2id as "wrong password". This narrows the timing gap; it does not close
  *     it. A known account takes one extra write (`recordFailedAttempt`), and the
  *     row lookup itself differs, so a patient attacker with many samples still has
- *     something to measure — which is why the account also gets locked after five
+ *     something to measure - so the account also gets locked after five
  *     failures. Timing equalisation is a mitigation, not a proof.
  *  2. Password before state. The lock and the verification flag are inspected only
  *     after a *correct* password. Checked earlier, "unknown email" would answer 401
- *     while "known but locked" answered 423 — an enumeration oracle built out of
+ *     while "known but locked" answered 423 - an enumeration oracle built out of
  *     error codes. The price is one hash per attempt on a locked account, bounded
  *     by the rate limit.
  */
@@ -128,7 +128,7 @@ export function createAuthService({
 
   /**
    * Registration answers the same `202` whether the address was free or already
-   * taken, and never says which. Two details keep that promise honest:
+   * taken, and never says which. Two details keep that promise:
    *
    *  - the password is hashed on both paths, so a duplicate does not answer
    *    faster than a new account;
@@ -249,7 +249,7 @@ export function createAuthService({
 
   /**
    * Ask for a reset link. Always `202`, and the same body whether or not the
-   * address exists — a reset form that says "no such account" is a free
+   * address exists - a reset form that says "no such account" is a free
    * membership oracle.
    *
    * Turnstile comes first: the endpoint sends mail on behalf of an anonymous
@@ -298,10 +298,10 @@ export function createAuthService({
   /**
    * Spend a reset link. Everything happens in one transaction: the new hash, the
    * "verified" flag (controlling the mailbox is the same proof), the token being
-   * consumed and every session being revoked. A half-applied reset — new password,
-   * old sessions still alive — is the failure this ordering prevents.
+   * consumed and every session being revoked. A half-applied reset - new password,
+   * old sessions still alive - is the failure this ordering prevents.
    *
-   * The lockout counter is deliberately left alone: resetting a password should not
+   * The lockout counter is left alone: resetting a password should not
    * hand a guessing attacker a fresh budget.
    */
   async function confirmPasswordReset({ token, newPassword }) {
@@ -374,7 +374,7 @@ function normaliseEmail(value) {
   return email;
 }
 
-/** The user object returned by login — a snapshot, not the authority (`/me` is). */
+/** The user object returned by login - a snapshot, not the authority (`/me` is). */
 function snapshot(user) {
   return { id: user.id, email: user.email, role: user.role, createdAt: user.createdAt };
 }

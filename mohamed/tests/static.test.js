@@ -2,9 +2,9 @@
  * The pages themselves are part of the delivery: the API is useless to a marker
  * who cannot open a browser and sign in.
  *
- * These tests cover the wiring that makes that true — the files are served, the
+ * These tests cover the wiring that makes that true - the files are served, the
  * security headers are on every response, and the static mount did not swallow
- * the API's 404 envelope. They deliberately do not test the browser behaviour of
+ * the API's 404 envelope. They do not test the browser behaviour of
  * each page; that is what the manual walkthrough is for.
  */
 

@@ -5,7 +5,7 @@ import { conflict, forbidden, notFound, unprocessable } from '../errors.js';
  *
  * The rules live here and not in the route because two callers need them: the
  * HTTP endpoints below, and the CSV importer, which creates courses from a file
- * and must apply exactly the same validation — one code path, one set of
+ * and must apply exactly the same validation - one code path, one set of
  * messages, so "422 on row 3" means the same thing however the course arrived.
  *
  * Everything takes plain values and returns plain objects: no `req`, no `res`,
@@ -67,7 +67,7 @@ const courseNotFound = () => notFound('COURSE_NOT_FOUND', 'No such course.');
 
 // A path parameter is user input too. Postgres rejects a non-uuid where a uuid
 // is expected with a 22P02 error, which would surface as a 500 for a request
-// that is merely wrong — "no such course" is the accurate answer.
+// that is merely wrong - "no such course" is the accurate answer.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (value) => typeof value === 'string' && UUID.test(value);
 
@@ -134,7 +134,7 @@ export function createCoursesService({ courses }) {
    *    and punishing that would be a trap;
    *  - changing it while live sections exist is refused, since every one of those
    *    sections is currently displayed under the old code;
-   *  - archived sections do not block it — they are history.
+   *  - archived sections do not block it - they are history.
    */
   async function update(id, { code, title, credits, archived }) {
     const current = isUuid(id) ? await courses.findById(id) : null;
@@ -170,7 +170,7 @@ export function createCoursesService({ courses }) {
 
       // Archiving through PATCH is the same operation as DELETE, so it archives
       // the live sections too. Restoring brings back the course only: sections
-      // were withdrawn deliberately and a restore must not re-enrol students in
+      // were withdrawn and a restore must not re-enrol students in
       // a class nobody scheduled.
       if (archived && current.archivedAt === null) {
         await courses.archive(id);

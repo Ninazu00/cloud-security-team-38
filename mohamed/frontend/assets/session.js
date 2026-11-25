@@ -2,7 +2,7 @@
  * Session state and the shared shell.
  *
  * A page boots by calling `boot()`, which tries the refresh cookie, loads `/me`,
- * draws the top bar and — if the page asked for it — refuses to render for a
+ * draws the top bar and - if the page asked for it - refuses to render for a
  * non-admin. The refusal here is **cosmetic**: every route checks the role on the
  * server. Hiding a button is not access control; the API is what decides.
  */

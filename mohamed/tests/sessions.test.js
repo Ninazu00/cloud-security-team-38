@@ -115,7 +115,7 @@ test('a token reused after the grace window revokes the whole family', { skip },
   const first = await sessions.start({ userId });
   const second = await sessions.rotate({ token: first.refreshToken });
 
-  // The thief replays the old token 60 s later — outside the 30 s window.
+  // The thief replays the old token 60 s later - outside the 30 s window.
   const later = serviceAt(60_000);
   await expectApiError(later.rotate({ token: first.refreshToken }), 410, 'REFRESH_REUSED');
 

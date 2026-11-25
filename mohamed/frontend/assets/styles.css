@@ -35,7 +35,7 @@ a:hover { text-decoration: underline; }
 
 /*
  * The browser's own `[hidden] { display: none }` loses to any author rule that
- * sets `display` — and `.btn` sets `inline-flex`, so a button marked hidden was
+ * sets `display` - and `.btn` sets `inline-flex`, so a button marked hidden was
  * still painted. That mattered: the New course / New section buttons are hidden
  * for students by JavaScript, and they kept showing up. This rule restores the
  * meaning of the attribute for everything on the page.

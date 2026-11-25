@@ -5,7 +5,7 @@
 
 import { checkReadiness } from '../services/health.service.js';
 
-/** Liveness: the process answers at all. Deliberately cannot fail on state. */
+/** Liveness: the process answers at all. It never touches state. */
 export function liveness(_req, res) {
   res.status(200).json({ status: 'ok' });
 }

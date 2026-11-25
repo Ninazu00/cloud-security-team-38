@@ -16,7 +16,7 @@ import { closePool, ping, query, withTransaction } from './db.js';
 
 // The key is unsealed before the socket opens, and a failure here is fatal. A
 // task that cannot sign would answer every login with a 500 while reporting
-// healthy to the load balancer — a crash-loop is the honest behaviour.
+// healthy to the load balancer - a crash-loop is the right behaviour.
 let auth;
 try {
   auth = await buildAuth({ query, withTransaction, config, log });

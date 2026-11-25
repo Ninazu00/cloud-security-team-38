@@ -5,16 +5,16 @@ import { unauthorized } from '../errors.js';
 /**
  * Access tokens: minting and verification.
  *
- * A JWT is three base64url segments joined by dots — `header.payload.signature` —
+ * A JWT is three base64url segments joined by dots - `header.payload.signature` -
  * where the signature is RSA-SHA256 over the first two segments. It is *signed*,
  * not encrypted: anyone holding the public key can read the claims. So nothing
  * secret ever goes in the payload, and this module refuses to put an email address
  * there (the contract fixes the claim set at `iss`/`aud`/`sub`/`role`/`iat`/`exp`/`jti`).
  *
- * Two roles, deliberately separate:
+ * Two roles, separate:
  *
- *   createTokenService({ keystore })   — the issuer: signs, and can verify its own.
- *   createTokenVerifier({ published }) — a relying party: holds ONLY public keys.
+ *   createTokenService({ keystore })   - the issuer: signs, and can verify its own.
+ *   createTokenVerifier({ published }) - a relying party: holds ONLY public keys.
  *
  * That split is the federation property in code. Timetable and Compare & Share use
  * the verifier with the JWKS document and never possess anything that could mint a
@@ -23,11 +23,11 @@ import { unauthorized } from '../errors.js';
  *
  * The signing itself is ~10 lines of `node:crypto`, so there is no JWT library and
  * no dependency to audit. The cost of hand-rolling is that every validation rule has
- * to be written and tested explicitly — which is what the test file is for, including
+ * to be written and tested explicitly - which is what the test file is for, including
  * the two classic attacks (`alg: none`, and RS256 → HS256 key confusion).
  *
  * One error for every failure. A caller learns "not authenticated", never "expired
- * at 14:02" — the difference is an oracle that tells an attacker whether a guessed
+ * at 14:02" - the difference is an oracle that tells an attacker whether a guessed
  * token was ever valid. The specific reason is attached to the error for the log,
  * and never reaches the response body.
  */
@@ -95,7 +95,7 @@ export function createTokenService({
 /**
  * A relying party: verifies with public keys only.
  *
- * `published` is the JWKS document — either the live `keystore.published` inside
+ * `published` is the JWKS document - either the live `keystore.published` inside
  * this service, or the array another team fetched from `/.well-known/jwks.json`.
  * Nothing here can sign, which is the point.
  */
@@ -162,8 +162,8 @@ export function createTokenVerifier({
     if (claims.iss !== issuer) throw reject('iss');
 
     // A JWT may carry `aud` as a string or an array of strings. Our contract fixes
-    // it to one string, so anything else — including a multi-audience token from
-    // somewhere else — is simply not ours.
+    // it to one string, so anything else - including a multi-audience token from
+    // somewhere else is not ours.
     if (claims.aud !== audience) throw reject('aud');
 
     const nowSeconds = now() / 1000;

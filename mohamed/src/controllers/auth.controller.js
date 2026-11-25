@@ -2,7 +2,7 @@ import { unauthorized } from '../errors.js';
 import { clearedRefreshCookie, readRefreshCookie, refreshCookie } from '../http/cookies.js';
 
 /**
- * HTTP in, HTTP out — no SQL, no token maths, no policy.
+ * HTTP in, HTTP out - no SQL, no token maths, no policy.
  *
  * The controller's whole job is to translate one medium into another: read the
  * cookie and the JSON body, call the service, then decide what goes in the body
@@ -70,7 +70,7 @@ export function createAuthController({ auth, tokens, now = () => Date.now() }) {
     },
 
     /**
-     * Always 204, always clears the cookie — including when there was no cookie,
+     * Always 204, always clears the cookie - including when there was no cookie,
      * or when the token was already dead. A logout that reports failure teaches
      * the client to keep the stale cookie.
      */

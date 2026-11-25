@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars and fill in. The database URL is a credential, so
+# terraform.tfvars is ignored by git.
+image       = "000000000000.dkr.ecr.us-east-1.localhost:4566/class-tt/catalogue:deploy"
+database_url = "postgresql://user:password@host/db?sslmode=verify-full"
+
+public_base_url = "http://localhost:8080"
+public_hosts    = ["localhost"]

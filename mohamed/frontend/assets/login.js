@@ -108,7 +108,7 @@ form.addEventListener('submit', async (event) => {
   try {
     if (mode === 'register') {
       // The server answers 202 with the same body whether or not the address
-      // existed — registration must not be a way to discover who has an account.
+      // existed - registration must not be a way to discover who has an account.
       await api.register(email, password, turnstileToken);
       // Switch tabs *before* showing the message: setMode clears the note area,
       // so showing it first would leave the user staring at a blank form.
@@ -142,7 +142,7 @@ form.addEventListener('submit', async (event) => {
 
 /**
  * Offer a fresh verification link. The server answers 202 whether or not the
- * address has an unverified account, so the message is deliberately conditional:
+ * address has an unverified account, so the message is conditional:
  * no click here can reveal who has an account.
  */
 function offerResend(address) {

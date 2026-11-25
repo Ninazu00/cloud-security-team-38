@@ -2,13 +2,13 @@
  * Limit and cursor handling for list endpoints.
  *
  * The cursor is opaque on purpose: it is a base64url-encoded `{ createdAt, id }`
- * pair, not an offset. Offsets drift — insert a row while a client is paging and
- * it sees the same course twice — whereas keyset paging asks "everything older
+ * pair, not an offset. Offsets drift - insert a row while a client is paging and
+ * it sees the same course twice - whereas keyset paging asks "everything older
  * than this row", which is stable under inserts and cheap with the right index.
  *
  * Encoding is not a security control. The decoded values are only ever passed as
  * query parameters, which is what prevents injection; base64url buys two other
- * things — a client that hand-builds a cursor is a client that depends on its
+ * things - a client that hand-builds a cursor is a client that depends on its
  * contents, and encoding is the visible signal that this value is opaque and not
  * a page number to do arithmetic on.
  */

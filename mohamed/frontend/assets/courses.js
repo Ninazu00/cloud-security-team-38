@@ -2,7 +2,7 @@
  * The course list.
  *
  * Reads are open to any signed-in account; the mutating controls are drawn only
- * for admins, which is presentation, not protection — the API answers 403 to a
+ * for admins, which is presentation, not protection - the API answers 403 to a
  * student who calls the same routes by hand.
  *
  * Paging is the cursor the server hands back. It is opaque on purpose: a page

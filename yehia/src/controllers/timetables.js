@@ -34,15 +34,23 @@ async function hydrateTimetable(record, authHeader) {
     : [];
   const foundMap = new Map(foundSections.map((s) => [String(s.id), s]));
   const missingSectionIds = sectionIds.filter((id) => !foundMap.has(String(id)));
-  const stale = Boolean(record.stale) || missingSectionIds.length > 0;
+  const archivedSectionIds = foundSections
+    .filter((s) => s.status === "ARCHIVED")
+    .map((s) => String(s.id));
+  const stale =
+    Boolean(record.stale) ||
+    missingSectionIds.length > 0 ||
+    archivedSectionIds.length > 0;
 
   return {
     id: record.timetableId,
+    ownerId: record.userId,
     name: record.name,
     createdAt: record.createdAt,
     sectionIds,
     sections: foundSections,
     missingSectionIds,
+    archivedSectionIds,
     stale,
   };
 }
@@ -144,6 +152,16 @@ export async function createTimetable(req, res, next) {
       return sendError(res, 404, "SECTION_NOT_FOUND", `Unknown section IDs: ${missing.join(", ")}`);
     }
 
+    const archived = sections.filter((s) => s.status === "ARCHIVED").map((s) => s.id);
+    if (archived.length > 0) {
+      return sendError(
+        res,
+        422,
+        "SECTION_ARCHIVED",
+        `Cannot save timetable with archived sections: ${archived.join(", ")}`
+      );
+    }
+
     const clashes = findClashes(sections);
     if (clashes.length > 0) {
       return sendError(res, 422, "TIMETABLE_CLASH", "Selected sections contain time clashes.", {
@@ -166,11 +184,13 @@ export async function createTimetable(req, res, next) {
 
     return res.status(201).json({
       id: saved.timetableId,
+      ownerId: saved.userId,
       name: saved.name,
       createdAt: saved.createdAt,
       sectionIds: saved.sectionIds,
       sections,
       missingSectionIds: [],
+      archivedSectionIds: [],
       stale: false,
     });
   } catch (err) {
@@ -183,6 +203,7 @@ export async function listTimetables(req, res, next) {
     const items = await repo.listTimetables(req.user.id);
     const result = items.map((r) => ({
       id: r.timetableId,
+      ownerId: r.userId,
       name: r.name,
       createdAt: r.createdAt,
       sectionIds: r.sectionIds || [],
@@ -201,7 +222,7 @@ export async function getTimetableById(req, res, next) {
       return sendError(res, 404, "TIMETABLE_NOT_FOUND", "Timetable not found.");
     }
     const hydrated = await hydrateTimetable(record, req.authHeader);
-    return res.status(200).json({ ...hydrated, ownerId: record.studentId || req.user.id });
+    return res.status(200).json(hydrated);
   } catch (err) {
     return next(err);
   }

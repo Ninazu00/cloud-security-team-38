@@ -7,6 +7,15 @@ import { logEvent } from "./logger.js";
 const cachedKeys = new Map();
 let cachedDefaultKey = null;
 
+function getAllowedRoles() {
+  return new Set(
+    (process.env.JWT_ALLOWED_ROLES || "student,admin")
+      .split(",")
+      .map((r) => r.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
 function resolveJwksUrl() {
   if (process.env.CATALOGUE_JWKS_URL) return process.env.CATALOGUE_JWKS_URL;
   if (process.env.CATALOGUE_PUBLIC_KEY_URL) return process.env.CATALOGUE_PUBLIC_KEY_URL;
@@ -70,27 +79,49 @@ export async function requireAuth(req, res, next) {
   }
 
   const token = header.slice(7).trim();
+  const isLive = (process.env.DEP_MODE || "mock") === "live";
+  const verifyOptions = { algorithms: ["RS256"] };
+  const issuer = process.env.JWT_ISSUER || (isLive ? "class-tt" : undefined);
+  const audience = process.env.JWT_AUDIENCE || (isLive ? "class-tt" : undefined);
+  if (issuer) verifyOptions.issuer = issuer;
+  if (audience) verifyOptions.audience = audience;
+
+  let payload;
   try {
     const decoded = jwt.decode(token, { complete: true });
     const kid = decoded?.header?.kid;
     const publicKey = await getPublicKey(kid);
-    const payload = jwt.verify(token, publicKey, { algorithms: ["RS256"] });
+    payload = jwt.verify(token, publicKey, verifyOptions);
     if (!payload.sub || !payload.role) {
       throw new Error("Missing required claims");
     }
-    req.user = { id: String(payload.sub), role: String(payload.role) };
-    req.authHeader = header;
-    return next();
   } catch (err) {
     logEvent("warn", "AUTH_INVALID_TOKEN", {
       path: req.originalUrl,
       statusCode: 401,
-      reason: err.name,
+      reason: err.name || err.message,
     });
     return res.status(401).json({
       error: { code: "UNAUTHORIZED", message: "Invalid or expired token" },
     });
   }
+
+  const normalizedRole = String(payload.role).trim().toLowerCase();
+  if (!getAllowedRoles().has(normalizedRole)) {
+    logEvent("warn", "AUTH_ROLE_NOT_ALLOWED", {
+      path: req.originalUrl,
+      statusCode: 403,
+      userId: String(payload.sub),
+      role: normalizedRole,
+    });
+    return res.status(403).json({
+      error: { code: "FORBIDDEN", message: "Role not permitted for timetable service" },
+    });
+  }
+
+  req.user = { id: String(payload.sub), role: normalizedRole };
+  req.authHeader = header;
+  return next();
 }
 
 export function requireAdmin(req, res, next) {

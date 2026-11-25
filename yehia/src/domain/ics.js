@@ -10,9 +10,10 @@ function escapeIcsText(str = "") {
 }
 
 function firstOccurrenceDate(termStartDate, targetDay) {
+  const dayKey = String(targetDay).trim().toLowerCase();
   const [y, m, d] = termStartDate.split("-").map(Number);
   const date = new Date(Date.UTC(y, m - 1, d));
-  const diff = (DAY_INDEX[targetDay] - date.getUTCDay() + 7) % 7;
+  const diff = (DAY_INDEX[dayKey] - date.getUTCDay() + 7) % 7;
   date.setUTCDate(date.getUTCDate() + diff);
 
   const yyyy = date.getUTCFullYear();
@@ -41,7 +42,8 @@ export function buildIcs(timetable, { termStartDate, termEndDate, timezone = "Af
   for (const sec of timetable.sections || []) {
     for (let i = 0; i < (sec.times || []).length; i++) {
       const slot = sec.times[i];
-      const ymd = firstOccurrenceDate(termStartDate, slot.day);
+      const dayKey = String(slot.day).trim().toLowerCase();
+      const ymd = firstOccurrenceDate(termStartDate, dayKey);
       const uid = `${timetable.id}-${sec.id}-${i}@class-timetable-builder`;
       const summary = `${sec.courseCode} (${sec.type} ${sec.sectionCode}) - ${sec.courseTitle}`;
 
@@ -51,7 +53,7 @@ export function buildIcs(timetable, { termStartDate, termEndDate, timezone = "Af
         `DTSTAMP:${dtstamp}`,
         `DTSTART;TZID=${timezone}:${ymd}T${formatHHMM(slot.start)}`,
         `DTEND;TZID=${timezone}:${ymd}T${formatHHMM(slot.end)}`,
-        `RRULE:FREQ=WEEKLY;BYDAY=${ICAL_DAY[slot.day]};UNTIL=${until}`,
+        `RRULE:FREQ=WEEKLY;BYDAY=${ICAL_DAY[dayKey]};UNTIL=${until}`,
         `SUMMARY:${escapeIcsText(summary)}`,
         `LOCATION:${escapeIcsText(slot.room || "TBA")}`,
         "END:VEVENT"

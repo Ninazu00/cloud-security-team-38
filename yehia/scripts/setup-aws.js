@@ -69,7 +69,7 @@ await eb.send(
     Name: ruleName,
     EventPattern: JSON.stringify({
       source: ["catalogue.service"],
-      "detail-type": ["section.updated", "section.deleted"],
+      "detail-type": ["section.updated", "section.deleted", "section.archived"],
     }),
     State: "ENABLED",
   })

@@ -1,0 +1,11 @@
+# Terraform working files, not source.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+terraform.tfvars
+!terraform.tfvars.example
+
+# The self-signed certificate and its private key: generated, never committed.
+tls/

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verify your email · Class TT</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <main class="auth">
+      <section class="card">
+        <h1>Class TT · Catalogue</h1>
+
+        <!--
+          The link in the email points here with ?token=…, and this page POSTs the
+          token. Doing it that way keeps the token out of the Referer header, out
+          of proxy access logs and out of the browser history after the exchange.
+        -->
+        <p class="muted" data-state>Checking your link…</p>
+
+        <div class="alert error" data-error hidden></div>
+        <div class="alert ok" data-ok hidden></div>
+
+        <p data-next hidden><a class="btn primary" href="index.html">Go to sign in</a></p>
+        <p data-retry hidden><a class="btn secondary" href="index.html">Request a new link</a></p>
+      </section>
+    </main>
+
+    <script type="module" src="assets/verify-email.js"></script>
+  </body>
+</html>

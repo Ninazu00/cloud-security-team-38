@@ -2,7 +2,7 @@ import { unauthorized } from '../errors.js';
 import { clearedRefreshCookie, readRefreshCookie, refreshCookie } from '../http/cookies.js';
 
 /**
- * HTTP in, HTTP out — no SQL, no token maths, no policy.
+ * HTTP in, HTTP out - no SQL, no token maths, no policy.
  *
  * The controller's whole job is to translate one medium into another: read the
  * cookie and the JSON body, call the service, then decide what goes in the body
@@ -70,7 +70,7 @@ export function createAuthController({ auth, tokens, now = () => Date.now() }) {
     },
 
     /**
-     * Always 204, always clears the cookie — including when there was no cookie,
+     * Always 204, always clears the cookie - including when there was no cookie,
      * or when the token was already dead. A logout that reports failure teaches
      * the client to keep the stale cookie.
      */
@@ -88,6 +88,73 @@ export function createAuthController({ auth, tokens, now = () => Date.now() }) {
       const user = await auth.me({ userId: req.auth.userId });
       noStore(res);
       res.status(200).json(user);
+    },
+
+    /**
+     * 202 whether or not the address was free. The body says nothing about the
+     * account, which is the point: this endpoint is reachable without a session.
+     */
+    async register(req, res) {
+      const { email, password, turnstileToken } = req.body ?? {};
+
+      const result = await auth.register({
+        email,
+        password,
+        turnstileToken,
+        remoteIp: req.ip,
+      });
+
+      noStore(res);
+      res.status(202).json(result);
+    },
+
+    /** The token arrives in the body: a link in a URL leaks through history and logs. */
+    async verifyEmail(req, res) {
+      const { token } = req.body ?? {};
+      const result = await auth.verifyEmail({ token });
+
+      noStore(res);
+      res.status(200).json(result);
+    },
+
+    async resendVerification(req, res) {
+      const { email, turnstileToken } = req.body ?? {};
+
+      const result = await auth.resendVerification({
+        email,
+        turnstileToken,
+        remoteIp: req.ip,
+      });
+
+      noStore(res);
+      res.status(202).json(result);
+    },
+
+    /**
+     * Same shape as `resendVerification`: 202 and a body that says nothing about
+     * the account. The mail is the only way to learn anything, which is the point.
+     */
+    async requestPasswordReset(req, res) {
+      const { email, turnstileToken } = req.body ?? {};
+
+      const result = await auth.requestPasswordReset({
+        email,
+        turnstileToken,
+        remoteIp: req.ip,
+      });
+
+      noStore(res);
+      res.status(202).json(result);
+    },
+
+    /** 200 and no session: the user asked to change a password, not to sign in. */
+    async confirmPasswordReset(req, res) {
+      const { token, newPassword } = req.body ?? {};
+
+      const result = await auth.confirmPasswordReset({ token, newPassword });
+
+      noStore(res);
+      res.status(200).json(result);
     },
   };
 }

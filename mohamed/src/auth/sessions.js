@@ -3,7 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { gone, unauthorized } from '../errors.js';
 
 /**
- * Refresh sessions — the stateful half of authentication.
+ * Refresh sessions - the stateful half of authentication.
  *
  * The access token is a signed claim nobody can withdraw; this module is the
  * withdrawal mechanism. A refresh token is 32 random bytes, never stored, only
@@ -111,7 +111,7 @@ export function createSessionService({
       throw invalid();
     }
 
-    // Reuse detection has a side effect — the family must die — and that side
+    // Reuse detection has a side effect - the family must die - and that side
     // effect has to survive the exception that reports it. Throwing from inside the
     // transaction would roll the revocation back and leave the stolen token alive,
     // so the family is recorded here and revoked afterwards, in its own transaction.
@@ -140,7 +140,7 @@ export function createSessionService({
         const withinGrace = rotatedAt !== null && now() - rotatedAt <= graceSeconds * 1000;
 
         if (rotatedAt !== null && (!withinGrace || session.grace_used)) {
-          // Evidence of theft — or of a client replaying an old cookie. Either way
+          // Evidence of theft - or of a client replaying an old cookie. Either way
           // the family is finished, including the token the real client holds.
           familyToRevoke = session.family_id;
           throw reused();

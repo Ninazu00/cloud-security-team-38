@@ -19,7 +19,7 @@ import { jwkThumbprint } from '../src/auth/keystore.js';
  *       Prints the kid to publish.
  *
  *   node scripts/seal-key.mjs --key keys/dev.pem
- *       Same, but seals an existing PEM instead of generating one — this is how a
+ *       Same, but seals an existing PEM instead of generating one - this is how a
  *       key already in use is moved into the vault without changing its kid.
  *
  * Rotation (`--rotate`) keeps the old key's public half in `retired`, so tokens
@@ -71,7 +71,9 @@ async function main() {
     return;
   }
 
-  const ports = createAwsPorts({ region: REGION, endpoint: ENDPOINT });
+  // A developer script that talks to floci: the dummy credential pair is passed
+  // explicitly, never inferred from the environment (see aws-clients.js).
+  const ports = createAwsPorts({ region: REGION, endpoint: ENDPOINT, testCredentials: true });
   const ciphertext = await ports.kms.encrypt({ plaintext: pem, keyId: KMS_KEY_ALIAS });
 
   let retired = [];

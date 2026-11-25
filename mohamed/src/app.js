@@ -1,14 +1,18 @@
-// The Express app, with no `listen` and no process-level concerns — that split
+// The Express app, with no `listen` and no process-level concerns - that split
 // keeps every route testable on an ephemeral port without touching a real socket
 // or a real database. Everything below is transport-agnostic.
 
 import express from 'express';
 import crypto from 'node:crypto';
 
-import { isProduction } from './config.js';
+import { config, isProduction } from './config.js';
 import { log } from './logger.js';
 import { ApiError, errorBody, notFound } from './errors.js';
 import { healthRouter } from './routes/health.js';
+import { cors } from './http/cors.js';
+import { createProbeGuard } from './http/probe-guard.js';
+import { createRateLimit } from './http/rate-limit.js';
+import { securityHeaders } from './http/security.js';
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{8,64}$/;
 
@@ -21,18 +25,32 @@ const JSON_BODY_LIMIT_BYTES = 100 * 1024;
 // still available when a probe is what you are investigating.
 const PROBE_PATHS = new Set(['/healthz', '/readyz']);
 
-export function createApp({ auth = null } = {}) {
+export function createApp({
+  auth = null,
+  catalogue = null,
+  admin = null,
+  staticDir = null,
+  allowedOrigins = config.corsOrigins,
+  // Tests pass their own limiter so a suite can use a limit of three instead of
+  // sixty, and so the window can be short.
+  rateLimit = null,
+  // Tests pass their own guard so a suite can pretend to be a public caller.
+  probeGuard = null,
+} = {}) {
   const app = express();
 
   // Behind an ALB the client address arrives in X-Forwarded-For; without this
   // req.ip is the proxy's address and every rate limit keys on one value.
-  // `1` means "trust exactly one hop" — with `true`, a client could spoof its
+  // `1` means "trust exactly one hop" - with `true`, a client could spoof its
   // own address by sending the header itself.
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
 
+  app.use(securityHeaders({ hsts: isProduction }));
+  app.use(cors({ origins: allowedOrigins }));
+
   // Correlation id: accept a sane inbound one so a client-visible reference
-  // matches the log line, otherwise mint one. Validation matters — the value
+  // matches the log line, otherwise mint one. Validation matters - the value
   // ends up in logs and must not be able to forge a second log line.
   app.use((req, res, next) => {
     const inbound = req.get('x-request-id');
@@ -52,13 +70,39 @@ export function createApp({ auth = null } = {}) {
         status: res.statusCode,
         ms: Number(ms.toFixed(1)),
       };
-      // req.path, never req.originalUrl: the query string is where a reset token
-      // travels, and a path-only log structurally cannot record it.
+      // req.path, never req.originalUrl: reset and verification tokens travel in
+      // the query string (`?token=…`), and logging only the path keeps them out
+      // of the access log. This is a rule about *this* field, not a guarantee:
+      // a future route that put a token in the path itself would be logged, which
+      // is why tokens belong in bodies and query strings, never in path segments.
       if (PROBE_PATHS.has(req.path)) log.debug({ msg: 'probe', ...fields });
       else log.info({ msg: 'request', ...fields });
     });
     next();
   });
+
+  // Probes are unauthenticated and exempt from the limiter, so they get their own
+  // gate: only a caller whose TCP peer is a private address may ask. Scoped to the
+  // probe paths so the API is untouched, and mounted before the limiter so a
+  // refused probe costs nothing.
+  const { guard } =
+    probeGuard ??
+    createProbeGuard({ cidrs: config.probeAllowCidrs.length ? config.probeAllowCidrs : undefined });
+  app.use((req, res, next) => (PROBE_PATHS.has(req.path) ? guard(req, res, next) : next()));
+
+  // Rate limiting sits before the body parsers on purpose: a client that is over
+  // its budget should be refused before the process allocates anything for it.
+  // Probes are exempt - the load balancer calls them every 15 seconds and a 429
+  // there would take the task out of rotation for being asked whether it is alive.
+  app.use(
+    rateLimit ??
+      createRateLimit({
+        windowMs: config.rateLimitWindowMs,
+        max: config.rateLimitMax,
+        skip: (req) => PROBE_PATHS.has(req.path),
+        log,
+      }),
+  );
 
   // JSON bodies only, and small. The limit is a control, not a convenience:
   // it bounds the memory a single request can make the process allocate.
@@ -74,7 +118,25 @@ export function createApp({ auth = null } = {}) {
   // door production uses.
   if (auth) app.use(auth.router);
 
-  // Routes are mounted here as they are built — above this line. Everything that
+  // The catalogue, likewise composed outside this file. It needs auth's guards,
+  // so it is built after auth in `server.js` and passed in ready-made.
+  if (catalogue) app.use(catalogue.router);
+
+  // Admin endpoints (user list, role changes) are their own module for the same
+  // reason: they are a different responsibility from signing in or owning the
+  // catalogue, and they reuse auth's guards rather than re-implementing them.
+  if (admin) app.use(admin.router);
+
+  // The frontend, when it is served from this origin - which is the deployment
+  // shape the contract assumes, because the refresh cookie is `SameSite=Strict`
+  // and a different site would silently drop it. Static files sit *after* the API
+  // routers so a missing asset can never shadow a route, and *before* the 404 so
+  // a page that is not there still answers in the API's envelope.
+  if (staticDir) {
+    app.use(express.static(staticDir, { index: 'index.html', etag: true, maxAge: 0 }));
+  }
+
+  // Routes are mounted here as they are built - above this line. Everything that
   // falls through is a 404 in the same envelope as any other error, so no client
   // ever sees Express's HTML page.
   app.use((_req, _res, next) => next(notFound('NOT_FOUND', 'No such endpoint.')));

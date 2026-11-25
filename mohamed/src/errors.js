@@ -26,6 +26,8 @@ export const forbidden = (code, message, details) => new ApiError(403, code, mes
 export const notFound = (code, message, details) => new ApiError(404, code, message, details);
 export const conflict = (code, message, details) => new ApiError(409, code, message, details);
 export const gone = (code, message, details) => new ApiError(410, code, message, details);
+export const payloadTooLarge = (code, message, details) => new ApiError(413, code, message, details);
+export const unsupportedMediaType = (code, message, details) => new ApiError(415, code, message, details);
 export const unprocessable = (code, message, details) => new ApiError(422, code, message, details);
 export const locked = (code, message, details) => new ApiError(423, code, message, details);
 export const tooManyRequests = (code, message, details) => new ApiError(429, code, message, details);

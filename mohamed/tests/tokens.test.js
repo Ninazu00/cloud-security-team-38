@@ -188,7 +188,7 @@ test('a relying party with only the public keys verifies the token, and cannot m
   const token = service.signAccessToken({ sub: 'abc', role: 'student' });
 
   // Exactly what Timetable or Compare & Share holds: the JWKS document and nothing else.
-  // Its only knowledge of us is the public key set — no shared secret to sign with.
+  // Its only knowledge of us is the public key set - no shared secret to sign with.
   const peer = createTokenVerifier({
     published: keystore.published,
     now: () => 1_700_000_000 * 1000,

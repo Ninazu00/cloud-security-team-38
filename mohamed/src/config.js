@@ -1,6 +1,6 @@
 // Configuration is read once, validated once, and exported frozen. Anything
 // missing or malformed stops the process at boot instead of failing on the
-// first request — a container that cannot work should crash-loop, not serve
+// first request - a container that cannot work should crash-loop, not serve
 // 500s.
 
 const env = process.env;
@@ -40,7 +40,7 @@ export const config = Object.freeze({
   databaseUrl: required('DATABASE_URL'),
 
   // A pooled endpoint cannot take one connection per task per request, so the
-  // pool is deliberately small: tasks × pool max must stay under the endpoint's
+  // pool is small: tasks × pool max must stay under the endpoint's
   // connection limit.
   dbPoolMax: integer('DB_POOL_MAX', 5),
   dbConnectTimeoutMs: integer('DB_CONNECT_TIMEOUT_MS', 2000),
@@ -73,6 +73,50 @@ export const config = Object.freeze({
   // Required in production (the verifier refuses to construct without it), and the
   // local stack uses Cloudflare's "always passes" test secret.
   turnstileSecret: optional('TURNSTILE_SECRET', null),
+
+  // Empty by default: the frontend is served from this same origin. If it is ever
+  // hosted elsewhere, name the exact origins - the refresh cookie is credentialed,
+  // so a wildcard is both unsafe and rejected by browsers.
+  corsOrigins: optional('CORS_ORIGINS', '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+
+  // --- outgoing mail --------------------------------------------------------
+  // The From address must be a verified identity in SES, so the runbook
+  // verifies it before the first sign-up rather than letting the first send fail.
+  mailFrom: optional('MAIL_FROM', 'noreply@class-tt.local'),
+
+  // Used to build the verification link. It must be the address a *user* can
+  // reach, not the address the process can reach: on floci the two differ.
+  publicBaseUrl: optional('PUBLIC_BASE_URL', 'http://localhost:3000'),
+
+  // Two sends per sign-up are normal (register, resend); the cap is per account
+  // per hour and lives here so a test can lower it instead of sending four mails.
+  resendLimitPerHour: integer('RESEND_LIMIT_PER_HOUR', 3),
+
+  // Same idea for reset links: a forgotten password is a legitimate reason to ask
+  // twice, never an hour long.
+  resetLimitPerHour: integer('RESET_LIMIT_PER_HOUR', 3),
+
+  // The drainer is on by default. Tests turn it off and call `runOnce` themselves,
+  // so an assertion is never racing a background timer.
+  mailerEnabled: optional('MAILER_ENABLED', 'true') !== 'false',
+  mailerIntervalMs: integer('MAILER_INTERVAL_MS', 2000),
+
+  // --- request rate limiting ------------------------------------------------
+  // Per task, not per deployment: four tasks allow four times this. Raising it to
+  // 100000 is what the load-test notes do, because a k6 run is one client.
+  rateLimitWindowMs: integer('RATE_LIMIT_WINDOW_MS', 60_000),
+  rateLimitMax: integer('RATE_LIMIT_MAX', 60),
+
+  // Probes answer only callers whose TCP peer is a private address; empty means
+  // "use the built-in private ranges". Narrow it to the VPC CIDR once the
+  // network is fixed and there is only one private range to trust.
+  probeAllowCidrs: optional('PROBE_ALLOW_CIDRS', '')
+    .split(',')
+    .map((cidr) => cidr.trim())
+    .filter(Boolean),
 
   awsRegion: optional('AWS_REGION', 'us-east-1'),
   awsEndpointUrl: optional('AWS_ENDPOINT_URL', null),

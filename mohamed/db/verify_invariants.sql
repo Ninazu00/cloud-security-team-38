@@ -142,7 +142,7 @@ end $$;
 -- 6. updated_at is maintained by the trigger, not by callers.
 --    The old value is forced into the past first: `now()` is the *transaction*
 --    start time in Postgres, so a same-transaction update legitimately leaves
---    updated_at equal — comparing before/after inside one transaction proves
+--    updated_at equal - comparing before/after inside one transaction proves
 --    nothing. Worth knowing before writing a test that "proves" the trigger.
 do $$
 declare after_ts timestamptz;

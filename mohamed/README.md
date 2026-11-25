@@ -1,119 +1,137 @@
-# Catalogue & Accounts — Mohamed Ayman (239236)
+# Catalogue & Accounts (Mohamed Ayman, 239236)
 
-One of the three services in the Class Timetable Builder. This service owns the
-course catalogue and the system's identity: it is the only service that decides who
-a caller is, and the only one that issues tokens.
+My part of the Class Timetable Builder. This service owns the course catalogue
+and the system's identity: it is the only service that decides who a caller is,
+and the only one that issues tokens.
 
-- **API contract:** [`docs/api-contract.md`](docs/api-contract.md) — v1.4 FINAL, 27 endpoints in eight groups. Yehia and Mohab code against it.
-- **Status:** skeleton running (health, error envelope, logging, container image). No domain endpoints yet.
+- API contract: [`docs/api-contract.md`](docs/api-contract.md), 27 endpoints.
+  Yehia and Mohab write their clients against it.
+- Run it from source with `npm run dev`, or deploy it to floci with the
+  Terraform in [`infra/`](infra/README.md).
+
+## What works
+
+Everything below is covered by `tests/` and was exercised against a running
+server.
+
+- **Courses**: create, edit, archive, restore, search, paged listing. Archiving
+  is the only delete, so a course keeps its history and its sections are
+  archived with it.
+- **Sections**: one to five time blocks each, and a room cannot be booked twice
+  at the same time. The check runs inside the transaction that inserts, under a
+  lock on the room, so two requests cannot both see the room as free.
+- **CSV import**: one request, validated in memory, written in one transaction.
+  Nothing is stored on disk, a dry run writes nothing, and the same file cannot
+  be imported twice because the file is hashed.
+- **Identity**: register, verify by email, log in, refresh, log out, reset a
+  forgotten password. Passwords are Argon2id, access tokens are RS256 with a
+  `kid`, refresh tokens are opaque and rotate, and the signing key is sealed
+  with KMS.
+- **Frontend**: sign in, courses, sections, imports, accounts admin, and the
+  verification and reset pages. Plain HTML, CSS and ES modules, no build step.
 
 ## Layout
 
 ```
-mohamed/
-  src/
-    app.js        Express app: middleware, mounts routes, error handling. No listen, no signals.
-    server.js     Container entrypoint: listen, graceful shutdown, pool teardown.
-    config.js     Env parsing, validated once at boot.
-    logger.js     One JSON object per line (CloudWatch Logs Insights can query it).
-    db.js         pg pool, readiness ping, transaction helper.
-    errors.js     ApiError + the single error envelope.
-    routes/       URL table only. No logic, no SQL.
-    controllers/  HTTP in / HTTP out: read req, choose a status, shape the body.
-    services/     Business rules: overlap engine, CSV validator, token issuing.
-    models/       SQL and row shapes. The only layer that knows table names.
-  tests/          node:test suite, real HTTP against an ephemeral port.
-  docs/           API contract.
-  db/             schema.sql, invariant checks.
+src/
+  app.js        middleware, routes, static files, error handling
+  server.js     unseals the key, listens, starts the mailer, shuts down cleanly
+  config.js     reads the environment once, fails fast if something is missing
+  logger.js     one JSON object per line
+  db.js         pg pool, readiness ping, transaction helper
+  errors.js     ApiError and the one error shape
+  auth/         passwords, keystore, tokens, sessions, middleware, Turnstile
+  email/        templates, SES sender, the outbox worker
+  http/         cookies, pagination, upload, CORS, security headers, rate limit
+  imports/      the CSV parser (pure functions)
+  routes/       the URL table
+  controllers/  HTTP in and out
+  services/     the rules: overlap check, import, login flows
+  models/       SQL and row shapes
+frontend/       the pages and their modules
+tests/          node:test, real HTTP against a real database
+db/             schema.sql and the invariant checks
+infra/          Terraform: cluster, network, IAM, task, load balancer
+mailbox/        a local inbox for reading the mail floci captures
 ```
 
-## Layering
-
-One direction only, and each layer may call only the one below it:
-
-```
-routes -> controllers -> services -> models -> (pg)
-```
-
-| Layer | May do | Must not do | Why the rule exists |
-|---|---|---|---|
-| `routes/` | map a URL and method to a controller | anything else | keeps the endpoint list readable in one file |
-| `controllers/` | read `req`, pick a status, build `res` | SQL, business rules | a rule that lives here cannot be reused or unit-tested |
-| `services/` | enforce rules, orchestrate models | know about `req`/`res` | the importer, `PATCH` and the demo all call the same rule |
-| `models/` | SQL, row → object mapping | decisions, HTTP | one place where column names exist |
-
-`services/health.service.js` is the worked example: it asks the database whether it
-can serve, and returns `{ok, ms}`; the controller turns that into `200`/`503`; the
-route is a one-line binding.
+Layers only go one way: `routes -> controllers -> services -> models -> pg`.
+A service never sees `req`, and a model never decides a status code. That is how
+the room rule lives in one place instead of inside a request handler.
 
 ## Data model
 
-`db/schema.sql` creates eight tables — `users`, `sessions`, `auth_tokens`,
-`email_outbox`, `courses`, `sections`, `section_times`, `imports` — and two ideas
-run through all of them:
+`db/schema.sql` creates eight tables: `users`, `sessions`, `auth_tokens`,
+`email_outbox`, `courses`, `sections`, `section_times`, `imports`.
 
-- **Archive, never delete.** Every uniqueness rule that answers "is this code taken?"
-  filters to live rows, so archiving a section frees its code while its history
-  survives.
-- **Time is wall-clock, not an instant.** `section_times` stores `time` on purpose:
-  a 09:00 class stays at 09:00 across a DST change.
+Two ideas run through them. **Archive, never delete**: every "is this code
+taken?" rule filters to live rows, so archiving frees the code and keeps the
+history. **Time is wall-clock**: `section_times` stores `time`, not a timestamp,
+because a 09:00 class should stay at 09:00 when the clocks change.
 
-The one invariant SQL cannot express — two sections in one room at one time — is
-enforced in the service layer under a per-room advisory lock, and
-`db/verify_invariants.sql` proves each constraint actually bites:
+The one rule SQL cannot express is two sections in the same room at the same
+time. `db/verify_invariants.sql` tries to break every constraint, reports PASS
+or FAIL for each check, then rolls everything back:
 
 ```bash
 docker exec -i class-tt-postgres psql -U class_tt -d catalogue \
-  -v ON_ERROR_STOP=1 < db/verify_invariants.sql   # 10 PASS, rolled back
+  -v ON_ERROR_STOP=1 < db/verify_invariants.sql
 ```
 
+## Running it
 
-## Run it
-
-The database and the cloud emulator come from the project's local stack
-(`infra/floci/docker-compose.yml` in the parent workspace — floci on :4566, Floci Dash
-on :4500, Postgres on :5433).
+The database and the emulator come from the compose file in the parent folder
+(floci on :4566, its console on :4500, Postgres on :5433).
 
 ```bash
-cp .env.example .env          # once
+cp .env.example .env      # once
 npm install
-npm run dev                   # http://localhost:3000/healthz
-npm test
+npm run dev               # http://localhost:3000
+npm test                  # needs DATABASE_URL and the Postgres container
 ```
 
-Container:
+To deploy the container instead of running it from source:
 
 ```bash
-docker build -t class-tt/catalogue:dev .
-docker run -p 3000:3000 -e DATABASE_URL=... class-tt/catalogue:dev
+./deploy/deploy.sh
 ```
+
+That builds the image, applies the Terraform and checks the four responses.
+`--plan` stops after the plan, `--no-build` reuses the image, `--destroy` removes
+the stack. The app ends up on <https://localhost:8443>; there is no HTTP
+listener, and the certificate is self-signed, so the browser warns once.
+[`infra/README.md`](infra/README.md) has the rest, including how the certificate
+is made and where floci differs from real AWS.
 
 ## Health endpoints
 
-| Endpoint | Question | Wired to | Failure means |
-|---|---|---|---|
-| `GET /healthz` | is the process alive? | container health check → **restart** | the process is wedged |
-| `GET /readyz` | can this task serve traffic? | ALB target-group check → **out of rotation, no restart** | the database is unreachable |
+`GET /healthz` answers whether the process is alive, and `GET /readyz` answers
+whether this task can serve traffic (it pings the database).
 
-They are deliberately different. A database outage makes `/readyz` answer `503` while
-`/healthz` keeps answering `200`, so the platform drains the task instead of
-restarting it in a loop:
+They differ on purpose. When the database goes away, `/readyz` turns 503 while
+`/healthz` stays 200, so the platform takes the task out of the load balancer
+instead of restarting it again and again. On the deployed service, with Postgres
+stopped, `/readyz` returned `{"status":"not_ready","db":"unreachable"}` and
+`/healthz` still returned `{"status":"ok"}`.
 
-```
-DATABASE_URL unreachable ->  /healthz 200  /readyz 503   (drain)
-process crashed          ->  (no answer)                 (restart)
-```
+Both are hidden from the internet: the load balancer answers 404 for them, and
+so does the app if a request reaches it from outside the private range.
 
-## Conventions already enforced
+## Things the service always does
 
-- Every non-2xx response is `{"error":{"code","message","requestId"[,"details"]}}`; clients branch on `code`.
-- Every response carries `x-request-id`; an inbound one is accepted only if it matches `^[A-Za-z0-9._-]{8,64}$`, so a header cannot forge a log line.
-- Request logs carry method, path, status, duration and the id — never the body, never a header.
-- JSON bodies are capped at 100 KB (`413 PAYLOAD_TOO_LARGE`), and invalid JSON is `400 MALFORMED_JSON`, before any handler runs.
-- `trust proxy` is on, so rate limiting and audit lines see the client address, not the load balancer's.
+- Every error is `{"error":{"code","message","requestId"}}`. Clients branch on
+  `code`; the message can change.
+- Every response carries `x-request-id`. An incoming one is only kept if it looks
+  like an id, so a header cannot inject a fake line into the logs.
+- Request logs have method, path, status and duration. Never a body, never a
+  header, never a token.
+- JSON bodies are capped at 100 KB, and broken JSON is refused before any handler
+  runs.
+- Admin checks read the role from the database, not from the token, because a
+  token can be two hours old.
 
-## Next
+## Known gaps
 
-Block C of the plan: schema (`db/schema.sql`), then identity — argon2id, RS256 + `kid`,
-the JWKS endpoint, the KMS-sealed signing key, and the first endpoints
-(`/api/auth/register` …).
+The `section.changed` event that would let Timetable skip a refresh is not emitted.
+The report artefacts (threat table, security-test evidence, demo video) are
+written separately.

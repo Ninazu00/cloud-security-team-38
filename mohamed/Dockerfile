@@ -16,6 +16,11 @@ COPY --chown=node:node --from=deps /app/node_modules ./node_modules
 COPY --chown=node:node package.json ./
 COPY --chown=node:node src ./src
 
+# The same process serves the pages, because the refresh cookie is SameSite=Strict
+# and a second origin would silently lose it. Without this line the container
+# answers 404 for every page while the API keeps working.
+COPY --chown=node:node frontend ./frontend
+
 ENV NODE_ENV=production \
     PORT=3000
 

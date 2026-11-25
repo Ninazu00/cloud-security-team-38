@@ -5,6 +5,7 @@ import { createPublicKey, generateKeyPairSync, randomUUID } from 'node:crypto';
 import pg from 'pg';
 
 import { createApp } from '../src/app.js';
+import { noRateLimit } from './no-rate-limit.js';
 import { createAuthMiddleware } from '../src/auth/middleware.js';
 import { createAuthRouter } from '../src/routes/auth.js';
 import { createAuthController } from '../src/controllers/auth.controller.js';
@@ -16,8 +17,8 @@ import { createUsersModel } from '../src/models/users.model.js';
 /**
  * The auth routes end to end: HTTP in, Postgres underneath, a real RS256 key.
  *
- * Everything external is replaced by its cheapest honest double — an ephemeral
- * keypair instead of KMS, a switch instead of Turnstile — because the subject of
+ * Everything external is replaced by a cheap double - an ephemeral
+ * keypair instead of KMS, a switch instead of Turnstile - because the subject of
  * these tests is the *wiring*: which status comes out for which input, and whether
  * the cookie and the lockout behave. The cryptography and the unlock path have
  * their own tests (tests/tokens.test.js, tests/keystore.test.js).
@@ -130,6 +131,7 @@ before(async () => {
     sessions,
     tokens,
     verifyTurnstile: async () => turnstileOk,
+    withTransaction,
   });
 
   const auth = {
@@ -140,7 +142,7 @@ before(async () => {
     }),
   };
 
-  const app = createApp({ auth });
+  const app = createApp({ auth, rateLimit: noRateLimit });
   server = app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;

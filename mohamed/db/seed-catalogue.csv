@@ -1,0 +1,12 @@
+course_code,course_title,credits,section_code,type,room,capacity,day_of_week,start_time,end_time
+CS101,Introduction to Programming,3,L1,lecture,R-101,60,1,09:00,10:30
+CS101,Introduction to Programming,3,L2,lecture,R-101,60,3,09:00,10:30
+CS101,Introduction to Programming,3,T1,tutorial,S-201,25,5,11:00,12:00
+CS201,Data Structures,4,L1,lecture,R-102,55,2,11:00,12:30
+CS201,Data Structures,4,LAB1,lab,LAB-1,30,4,14:00,16:00
+CS301,Operating Systems,3,L1,lecture,R-103,50,0,10:00,11:30
+CS301,Operating Systems,3,L2,lecture,R-103,50,2,09:00,10:30
+MA201,Discrete Mathematics,3,L1,lecture,R-104,70,1,13:00,14:30
+SE201,Software Engineering,3,L1,lecture,R-105,45,3,11:00,12:30
+SE201,Software Engineering,3,LAB1,lab,LAB-2,24,0,14:00,15:30
+NW301,Computer Networks,3,L1,lecture,R-106,40,4,09:00,10:30

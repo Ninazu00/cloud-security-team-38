@@ -3,7 +3,7 @@
  *
  * Every block is `[start, end)` on one day. The server rejects a block whose end
  * is not after its start, a block that clashes with another block of the same
- * section, and a block that double-books a room — the last one is what
+ * section, and a block that double-books a room - the last one is what
  * `ROOM_CONFLICT` reports, and it is the rule that actually belongs to this
  * service rather than to the timetable student.
  */
@@ -131,7 +131,7 @@ function render() {
   );
   empty.hidden = items.length > 0;
 
-  // `archivedAt` is null for a live course — `??` would treat that null as
+  // `archivedAt` is null for a live course - `??` would treat that null as
   // "unknown" and hide the button, so the check is an explicit truthiness test.
   newButton.hidden = !isAdmin() || Boolean(course?.archivedAt);
 }
@@ -146,7 +146,7 @@ async function load() {
     course = fresh.items.find((candidate) => candidate.id === courseId) ?? null;
     items = page.items;
 
-    title.textContent = course ? `${course.code} — ${course.title}` : 'Section list';
+    title.textContent = course ? `${course.code} - ${course.title}` : 'Section list';
     meta.textContent = course
       ? `${course.credits} credits · ${course.sectionCount} live section(s)${course.archivedAt ? ' · archived' : ''}`
       : 'This course is not in the current page of results.';

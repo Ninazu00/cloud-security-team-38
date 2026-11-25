@@ -1,10 +1,10 @@
 /**
  * Request rate limiting, in process.
  *
- * The load balancer cannot do this. An ALB has no rate rule — the only AWS place
+ * The load balancer cannot do this. An ALB has no rate rule - the only AWS place
  * to express "N requests per minute per client" in front of an ALB is WAF, and
  * floci has no WAF data plane in front of an emulated ALB, so a WAF rule there
- * would be a control that provably does nothing. This is the honest place for it:
+ * would be a control that provably does nothing. This is the right place for it:
  * in the service, with a test that proves the 429.
  *
  * Two consequences worth stating rather than hiding:

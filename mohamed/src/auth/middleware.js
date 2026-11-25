@@ -3,9 +3,9 @@ import { forbidden, unauthorized } from '../errors.js';
 /**
  * Who is calling, and may they.
  *
- * `requireAuth` is deliberately cheap: it verifies the signature and attaches the
+ * `requireAuth` is cheap on purpose: it verifies the signature and attaches the
  * claims, but does not read the database. A token is the caller's claim, good for
- * up to two hours — fine for "is this person logged in".
+ * up to two hours - fine for "is this person logged in".
  *
  * `requireRole` is not cheap, on purpose: it re-reads `users.role`, because an
  * admin demoted thirty seconds ago still holds an `admin` claim in a token that
@@ -17,7 +17,7 @@ import { forbidden, unauthorized } from '../errors.js';
  *
  * Neither function wraps its body in try/catch. Express 5 catches a synchronous
  * throw in a handler or middleware and passes it to the error handler, and it does
- * the same for a rejected promise from an async one — so the `ApiError` raised by
+ * the same for a rejected promise from an async one - so the `ApiError` raised by
  * the verifier arrives at the JSON error handler without any plumbing here.
  */
 

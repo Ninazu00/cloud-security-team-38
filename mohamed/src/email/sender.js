@@ -56,7 +56,7 @@ export function createSesSender({
 
 /**
  * A sender that collects messages instead of sending them. Used by the tests so
- * the verification flow can be exercised without a mail server — the token is
+ * the verification flow can be exercised without a mail server - the token is
  * read back out of the rendered text, exactly as a user would read it.
  */
 export function createCaptureSender() {

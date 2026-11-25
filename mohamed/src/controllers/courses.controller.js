@@ -1,5 +1,5 @@
 /**
- * HTTP in, JSON out. No SQL, no rules — the controller reads the request,
+ * HTTP in, JSON out. No SQL, no rules - the controller reads the request,
  * calls one service method and picks a status code.
  *
  * `req.auth` is filled by `requireAuth`; the role in it has already been

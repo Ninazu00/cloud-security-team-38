@@ -1,7 +1,7 @@
 import express from 'express';
 
 /**
- * The URL table for courses — paths and guards only, every handler a one-liner.
+ * The URL table for courses - paths and guards only, every handler a one-liner.
  *
  * Reads need a login; writes need `admin`. `requireRole` re-reads the role from
  * the users table, so a demoted admin loses write access on their next request

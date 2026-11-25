@@ -39,7 +39,7 @@ const POLICY = Object.freeze({
 /**
  * Hard ceiling applied to parameters read back from a stored hash. Without it, a
  * row carrying `m=4194304` would ask the task for 4 GiB every time someone tried
- * to log in — a stored hash must never be able to dictate unbounded work.
+ * to log in - a stored hash must never be able to dictate unbounded work.
  */
 const CEILING = Object.freeze({
   memory: 65536,
@@ -244,7 +244,7 @@ function decode(stored) {
 /**
  * True only when the stored cost is *weaker* than today's policy, so the row is
  * upgraded on the next successful login. A row that is stronger than the policy
- * (a hash made by a future setting) is left alone — rehashing it would be a
+ * (a hash made by a future setting) is left alone - rehashing it would be a
  * downgrade dressed up as maintenance.
  */
 function isWeakerThanPolicy(params) {

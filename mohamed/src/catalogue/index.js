@@ -27,7 +27,7 @@ import { createImportsRouter } from '../routes/imports.js';
  * The importer is the one service that talks to two other models instead of one:
  * it writes courses, sections and times in a single transaction, so "all or
  * nothing" is decided by the caller rather than by three services agreeing to
- * cooperate. It also reuses the *model* layer directly — the HTTP services add
+ * cooperate. It also reuses the *model* layer directly - the HTTP services add
  * validation and status codes it does not want, since its errors become rows in
  * a report rather than responses.
  */

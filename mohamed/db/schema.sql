@@ -1,4 +1,4 @@
--- Class Timetable Builder — catalogue service schema
+-- Class Timetable Builder - catalogue service schema
 --
 -- Everything the contract in docs/api-contract.md promises, and nothing it does
 -- not. Two ideas carry most of the design weight:
@@ -8,8 +8,8 @@
 --      "gone from the database" are different states. Every unique index that
 --      answers "is this code taken?" therefore filters to live rows.
 --
---   2. The one invariant SQL cannot express here — "no two sections occupy the
---      same room at the same time" — is enforced in the service layer under a
+--   2. The one invariant SQL cannot express here - "no two sections occupy the
+--      same room at the same time" - is enforced in the service layer under a
 --      per-room advisory lock (docs/07 §5.1). A CHECK constraint cannot see other
 --      rows, a UNIQUE constraint cannot compare ranges, and an EXCLUDE constraint
 --      would need `room` denormalised into section_times. The comment sits next to
@@ -34,10 +34,10 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- users — the system's identity of record
+-- users - the system's identity of record
 -- ---------------------------------------------------------------------------
 -- The other two services never read this table: they verify the JWT this
--- service signs. That is why there is no `email` claim in the token — identity
+-- service signs. That is why there is no `email` claim in the token - identity
 -- is looked up here, through /api/auth/me, when a client actually needs it.
 create table users (
   id                uuid primary key default gen_random_uuid(),
@@ -62,11 +62,11 @@ create trigger users_set_updated_at before update on users
   for each row execute function set_updated_at();
 
 -- ---------------------------------------------------------------------------
--- sessions — refresh tokens, in families
+-- sessions - refresh tokens, in families
 -- ---------------------------------------------------------------------------
 -- A refresh token is opaque, so only its SHA-256 is stored: a database dump
 -- cannot be replayed against the API. `family_id` is what makes reuse detection
--- possible — presenting a rotated token revokes the whole family, so a stolen
+-- possible - presenting a rotated token revokes the whole family, so a stolen
 -- token cannot outlive the legitimate one by much.
 create table sessions (
   id                uuid primary key default gen_random_uuid(),
@@ -89,7 +89,7 @@ create index sessions_expires_at_idx on sessions (expires_at);
 create index sessions_family_id_idx on sessions (family_id);
 
 -- ---------------------------------------------------------------------------
--- auth_tokens — single-use links that arrive by email
+-- auth_tokens - single-use links that arrive by email
 -- ---------------------------------------------------------------------------
 -- Separate from sessions on purpose: "revoke every session" (password reset)
 -- and "burn this one link" are different operations, and a reset token must not
@@ -109,7 +109,7 @@ create table auth_tokens (
 create index auth_tokens_user_purpose_idx on auth_tokens (user_id, purpose);
 
 -- ---------------------------------------------------------------------------
--- email_outbox — transactional mail without a queue contract
+-- email_outbox - transactional mail without a queue contract
 -- ---------------------------------------------------------------------------
 -- A mail is queued in the same transaction as the thing it describes, so a reset
 -- that is committed always has a mail and a rolled-back one never does. The
@@ -178,7 +178,7 @@ create table sections (
 );
 
 -- Partial unique: archiving "A" frees the code, restoring into a taken code
--- fails with 409 SECTION_CODE_TAKEN — which is exactly the contract's rule.
+-- fails with 409 SECTION_CODE_TAKEN - which is exactly the contract's rule.
 create unique index sections_course_code_live_key
   on sections (course_id, upper(section_code))
   where archived_at is null;
@@ -195,7 +195,7 @@ create trigger sections_set_updated_at before update on sections
   for each row execute function set_updated_at();
 
 -- ---------------------------------------------------------------------------
--- section_times — one row per weekly block
+-- section_times - one row per weekly block
 -- ---------------------------------------------------------------------------
 -- Wall-clock local time (Africa/Cairo) on purpose: a class at 09:00 stays at
 -- 09:00 across a DST change, because the timetable is a human agreement, not an
@@ -220,7 +220,7 @@ create index section_times_lookup_idx on section_times (day_of_week, start_time)
 -- and is serialised per room with SELECT pg_advisory_xact_lock(hashtext('room:' || :room)).
 
 -- ---------------------------------------------------------------------------
--- imports — one row per attempted file
+-- imports - one row per attempted file
 -- ---------------------------------------------------------------------------
 -- Written twice in the same request: `failed` after a rollback (evidence that
 -- something was rejected) or `committed` with the transaction that inserted the

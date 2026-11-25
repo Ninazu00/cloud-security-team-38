@@ -9,7 +9,7 @@
  *
  * Why not a real queue (SQS)? One process, one database, one consumer: a table
  * drained with `for update skip locked` gives the same guarantees and one fewer
- * moving part to explain. The claim query is the design — without `skip locked`
+ * moving part to explain. The claim query is the design - without `skip locked`
  * two tasks could send the same mail twice.
  */
 
@@ -19,7 +19,7 @@ export function createOutbox({ query }) {
   if (typeof query !== 'function') throw new Error('createOutbox needs query from db.js.');
 
   /**
-   * Queue a mail. `payload` holds template *values* only — never a rendered body
+   * Queue a mail. `payload` holds template *values* only - never a rendered body
    * and never a token (see auth/action-tokens.js for why).
    */
   async function enqueue({ toEmail, templateKey, payload = {} }, client = null) {

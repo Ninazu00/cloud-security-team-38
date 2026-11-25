@@ -40,7 +40,7 @@ export const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const TYPES = ['lecture', 'lab', 'tutorial'];
 
-/** "Mon 10:00–11:30" — the contract stores wall-clock times and a day number. */
+/** "Mon 10:00–11:30" - the contract stores wall-clock times and a day number. */
 export function timeRange(block) {
   return `${DAYS[block.dayOfWeek] ?? '?'} ${block.startTime}–${block.endTime}`;
 }
@@ -51,9 +51,9 @@ export function sortTimes(times = []) {
 }
 
 export function fmtDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
 }
 
 /**

@@ -65,7 +65,7 @@ export async function ping(timeoutMs = config.readyTimeoutMs) {
 
 /**
  * One transaction. Commits when the callback returns, rolls back when it throws,
- * and always releases the client — callers never see BEGIN/COMMIT/ROLLBACK.
+ * and always releases the client - callers never see BEGIN/COMMIT/ROLLBACK.
  *
  * Both timeouts are set with set_config(..., is_local = true), which scopes them
  * to this transaction. That matters because the connection goes back into the

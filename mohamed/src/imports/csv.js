@@ -15,10 +15,10 @@ import {
  *
  * Two things live together here on purpose:
  *
- *   1. the *shape* rules — header, column count, row cap — which decide whether
+ *   1. the *shape* rules - header, column count, row cap - which decide whether
  *      this file even means anything, and
- *   2. the *value* rules — types, ranges, "these rows describe one section and
- *      must agree" — which decide whether each row can be imported.
+ *   2. the *value* rules - types, ranges, "these rows describe one section and
+ *      must agree" - which decide whether each row can be imported.
  *
  * Both kinds become a list of `{ row, field, message }`, because the contract
  * promises a report, not a first failure. A file with nine bad rows should take
@@ -94,7 +94,7 @@ export function parseCatalogueCsv(buffer) {
   const rows = [];
 
   dataRows.forEach((cells, index) => {
-    // The header is row 1, so the first data row is row 2 — the numbers a
+    // The header is row 1, so the first data row is row 2 - the numbers a
     // spreadsheet shows.
     const row = index + 2;
 

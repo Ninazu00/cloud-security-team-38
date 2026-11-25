@@ -1,13 +1,13 @@
 /**
- * CORS, deliberately narrow.
+ * CORS, narrow.
  *
  * The frontend normally ships from this same origin, so this middleware does
  * nothing at all unless `CORS_ORIGINS` names an origin. That is the right
  * default: a same-origin app needs no CORS headers, and a permissive default is
  * how `Access-Control-Allow-Origin: *` ends up in production.
  *
- * The refresh cookie is credentialed, so `*` is never valid here — the browser
- * rejects it — and the allow-list has to be exact. `Vary: Origin` keeps a shared
+ * The refresh cookie is credentialed, so `*` is never valid here - the browser
+ * rejects it - and the allow-list has to be exact. `Vary: Origin` keeps a shared
  * cache from serving one origin's response to another.
  */
 export function cors({ origins = [] } = {}) {
@@ -22,7 +22,7 @@ export function cors({ origins = [] } = {}) {
     if (!allowed.has(origin)) {
       // A preflight from an origin we do not trust gets an empty 204 rather than a
       // 404: the browser refuses the request either way, because no
-      // `Access-Control-Allow-Origin` came back — but a 404 would also tell the
+      // `Access-Control-Allow-Origin` came back - but a 404 would also tell the
       // caller which routes exist, which is a free map of the API for anyone who
       // asks. Nothing else about the response is revealed.
       if (req.method === 'OPTIONS') return res.status(204).end();

@@ -12,7 +12,7 @@
  * 2. **A 401 triggers exactly one silent refresh and one retry.** That is what
  *    makes a 2-hour access token feel like a normal session, and doing it here
  *    means no page has to think about expiry. If the refresh also fails the
- *    session is genuinely over and the caller is sent back to the sign-in page.
+ *    session is really over and the caller is sent back to the sign-in page.
  */
 
 export class ApiError extends Error {
@@ -89,7 +89,7 @@ async function raw(path, { method = 'GET', body, form } = {}) {
 }
 
 // Single-flight: several tables can load at once, and each would otherwise start
-// its own refresh — with rotation, the losers would look like token reuse.
+// its own refresh - with rotation, the losers would look like token reuse.
 let refreshing = null;
 
 export function refreshSession() {

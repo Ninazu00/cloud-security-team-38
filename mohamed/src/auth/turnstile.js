@@ -1,7 +1,7 @@
 import { forbidden } from '../errors.js';
 
 /**
- * Cloudflare Turnstile — the only external API in this component.
+ * Cloudflare Turnstile - the only external API in this component.
  *
  * It answers one question before we spend 50 ms of Argon2id on a stranger:
  * did a human just complete a challenge? It is not authentication and it is not

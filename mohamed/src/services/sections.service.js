@@ -6,10 +6,10 @@ import { decodeCursor, parseLimit } from '../http/pagination.js';
  *
  * The one that matters: a room cannot be double-booked. That is a property of
  * *our* data, not of any student's timetable, so it is enforced here, at write
- * time, inside the same transaction as the insert — see
+ * time, inside the same transaction as the insert - see
  * `sections.model.js#findRoomConflict` for the lock that makes it race-free.
  *
- * Deliberately **not** enforced here:
+ * Not enforced here:
  *   - whether one student can attend two sections at once (Timetable owns the
  *     choice, and it has the `times` this API returns),
  *   - whether a section's course is archived (a section may stay live on a
@@ -163,7 +163,7 @@ export function createSectionsService({ sections, courses, adminOnly }) {
   }
 
   async function list(query, viewer) {
-    // Mode B — the frozen call the other services make. It ignores every filter,
+    // Mode B - the frozen call the other services make. It ignores every filter,
     // including paging: the id list is the query.
     if (query.ids !== undefined) {
       const FILTERS = ['courseId', 'courseCode', 'dayOfWeek', 'from', 'to', 'room', 'type', 'includeArchived', 'limit', 'cursor'];

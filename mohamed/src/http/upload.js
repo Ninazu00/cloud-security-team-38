@@ -9,7 +9,7 @@ import { badRequest, payloadTooLarge, unsupportedMediaType } from '../errors.js'
  *
  *   - **size** (2 MB) is a memory limit, not a business rule. `memoryStorage`
  *     holds the file so the parser can read it, which means an unbounded file is
- *     an unbounded allocation — exactly the shape of a denial-of-service bug.
+ *     an unbounded allocation - exactly the shape of a denial-of-service bug.
  *   - **one file, one field** keeps a request from smuggling a second part past
  *     the checks, and pins the field name the contract promises (`file`).
  *

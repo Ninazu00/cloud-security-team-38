@@ -9,15 +9,15 @@ import {
 /**
  * The only file that knows the AWS SDK exists.
  *
- * `keystore.js` wants two verbs — "give me this secret" and "decrypt these bytes"
- * — so they are adapted here into plain functions. Two payoffs: the keystore is
+ * `keystore.js` wants two verbs - "give me this secret" and "decrypt these bytes"
+ * - so they are adapted here into plain functions. Two payoffs: the keystore is
  * testable offline with fakes, and swapping the transport (SDK, raw SigV4, a
  * different emulator) never touches the crypto code.
  *
  * Endpoint resolution matters because the assessment target is floci, not AWS:
  * when `endpoint` is set, requests go there. `testCredentials` is a separate,
  * explicit flag rather than something inferred from the environment, because an
- * inference is a bypass waiting to happen — `AWS_ENDPOINT_URL` inherited from a
+ * inference is a bypass waiting to happen - `AWS_ENDPOINT_URL` inherited from a
  * copied `.env` would otherwise swap real task-role credentials for `test` in a
  * deployment, and the only visible symptom would be authenticating as nobody.
  */

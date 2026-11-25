@@ -1,8 +1,8 @@
 /**
  * Finish a verification link.
  *
- * Three states, all of them honest: verified, expired/bad link, or no token at
- * all (someone opened this page directly). The page never signs anyone in — it
+ * Three states, all three: verified, expired/bad link, or no token at
+ * all (someone opened this page directly). The page never signs anyone in - it
  * confirms an address, and the user then uses the normal sign-in form.
  */
 

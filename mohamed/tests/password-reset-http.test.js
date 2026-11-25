@@ -21,8 +21,8 @@ import { createAuthService } from '../src/services/auth.service.js';
 /**
  * Password reset, end to end over HTTP, with the real outbox and the real worker.
  *
- * The token is recovered from the rendered mail, so a token that is never minted —
- * or minted into the log instead of the message — fails here rather than in the
+ * The token is recovered from the rendered mail, so a token that is never minted -
+ * or minted into the log instead of the message - fails here rather than in the
  * demo.
  */
 

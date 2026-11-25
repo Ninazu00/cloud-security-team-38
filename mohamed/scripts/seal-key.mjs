@@ -19,7 +19,7 @@ import { jwkThumbprint } from '../src/auth/keystore.js';
  *       Prints the kid to publish.
  *
  *   node scripts/seal-key.mjs --key keys/dev.pem
- *       Same, but seals an existing PEM instead of generating one — this is how a
+ *       Same, but seals an existing PEM instead of generating one - this is how a
  *       key already in use is moved into the vault without changing its kid.
  *
  * Rotation (`--rotate`) keeps the old key's public half in `retired`, so tokens

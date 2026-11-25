@@ -1,7 +1,7 @@
 import express from 'express';
 
 /**
- * The URL table for authentication — paths and middleware, nothing else.
+ * The URL table for authentication - paths and middleware, nothing else.
  *
  * `POST /api/auth/logout` takes no access token on purpose: a client whose token
  * just expired must still be able to throw away its refresh cookie.
@@ -28,7 +28,7 @@ export function createAuthRouter({ controller, middleware, jwks }) {
 
   // Not under /api and not authenticated: this is how the other two services learn
   // the public half of our signing key. Cacheable for ten minutes, and it has no
-  // error response — an unreachable JWKS means "cannot verify", which the caller
+  // error response - an unreachable JWKS means "cannot verify", which the caller
   // already knows how to handle.
   router.get('/.well-known/jwks.json', (_req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=600');

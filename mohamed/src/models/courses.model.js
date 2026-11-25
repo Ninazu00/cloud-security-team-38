@@ -1,7 +1,7 @@
 import { decodeCursor, parseLimit, toPage } from '../http/pagination.js';
 
 /**
- * The `courses` table. SQL only — no policy, no HTTP, no status codes.
+ * The `courses` table. SQL only - no policy, no HTTP, no status codes.
  *
  * Two shapes matter here:
  *
@@ -146,7 +146,7 @@ export function createCoursesModel({ query, withTransaction }) {
    *
    * Takes the transaction's client, unlike the read methods above: the caller is
    * mid-transaction and every statement must land in the same unit of work.
-   * An archived course is reported rather than resurrected — silently un-archiving
+   * An archived course is reported rather than resurrected - silently un-archiving
    * something an admin withdrew would be a data change nobody asked for.
    */
   async function upsert(client, { code, title, credits }) {
@@ -173,7 +173,7 @@ export function createCoursesModel({ query, withTransaction }) {
     return { id: row.id, created: false, updated: changed, archived: false };
   }
 
-  /** How many sections are still live on this course — what blocks a `code` change. */
+  /** How many sections are still live on this course - what blocks a `code` change. */
   async function countActiveSections(courseId) {
     const { rows } = await query(
       `select count(*)::int as count from sections
@@ -188,7 +188,7 @@ export function createCoursesModel({ query, withTransaction }) {
    *
    * One transaction because the two facts belong together: a course nobody offers
    * with four sections still enrolling students is worse than either state alone.
-   * Idempotent — archiving twice answers "0 sections", which is true.
+   * Idempotent - archiving twice answers "0 sections", which is true.
    */
   async function archive(id, at = new Date()) {
     return withTransaction(async (client) => {

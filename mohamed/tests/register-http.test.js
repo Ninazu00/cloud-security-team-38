@@ -23,7 +23,7 @@ import { createAuthService } from '../src/services/auth.service.js';
  *
  * The mail is not stubbed out at the service boundary: the test drives the real
  * outbox and the real worker, with a sender that keeps the messages. That way the
- * token is recovered the way a user recovers it — out of the rendered text — and
+ * token is recovered the way a user recovers it - out of the rendered text - and
  * a token that is never minted, or minted into a payload instead of a mail, fails
  * the test instead of passing it.
  */

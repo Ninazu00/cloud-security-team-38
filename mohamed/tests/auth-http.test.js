@@ -17,8 +17,8 @@ import { createUsersModel } from '../src/models/users.model.js';
 /**
  * The auth routes end to end: HTTP in, Postgres underneath, a real RS256 key.
  *
- * Everything external is replaced by its cheapest honest double — an ephemeral
- * keypair instead of KMS, a switch instead of Turnstile — because the subject of
+ * Everything external is replaced by a cheap double - an ephemeral
+ * keypair instead of KMS, a switch instead of Turnstile - because the subject of
  * these tests is the *wiring*: which status comes out for which input, and whether
  * the cookie and the lockout behave. The cryptography and the unlock path have
  * their own tests (tests/tokens.test.js, tests/keystore.test.js).

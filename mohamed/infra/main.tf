@@ -135,8 +135,9 @@ resource "aws_secretsmanager_secret" "database" {
 }
 
 resource "aws_secretsmanager_secret_version" "database" {
-  secret_id     = aws_secretsmanager_secret.database.id
-  secret_string = var.database_url
+  secret_id                = aws_secretsmanager_secret.database.id
+  secret_string_wo         = var.database_url
+  secret_string_wo_version = 1
 }
 
 resource "aws_secretsmanager_secret" "turnstile" {
@@ -144,8 +145,9 @@ resource "aws_secretsmanager_secret" "turnstile" {
 }
 
 resource "aws_secretsmanager_secret_version" "turnstile" {
-  secret_id     = aws_secretsmanager_secret.turnstile.id
-  secret_string = var.turnstile_secret
+  secret_id                = aws_secretsmanager_secret.turnstile.id
+  secret_string_wo         = var.turnstile_secret
+  secret_string_wo_version = 1
 }
 
 resource "aws_cloudwatch_log_group" "app" {
@@ -393,6 +395,7 @@ locals {
     { name = "MAILER_INTERVAL_MS", value = "1000" },
     { name = "RESEND_LIMIT_PER_HOUR", value = "3" },
     { name = "DB_POOL_MAX", value = "5" },
+    { name = "RATE_LIMIT_MAX", value = tostring(var.rate_limit_max) },
     { name = "READY_TIMEOUT_MS", value = tostring(var.ready_timeout_ms) },
   ]
 

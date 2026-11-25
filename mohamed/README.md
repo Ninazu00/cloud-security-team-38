@@ -52,6 +52,7 @@ frontend/       the pages and their modules
 tests/          node:test, real HTTP against a real database
 db/             schema.sql and the invariant checks
 infra/          Terraform: cluster, network, IAM, task, load balancer
+mailbox/        a local inbox for reading the mail floci captures
 ```
 
 Layers only go one way: `routes -> controllers -> services -> models -> pg`.

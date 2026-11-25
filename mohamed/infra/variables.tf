@@ -123,3 +123,9 @@ variable "tls_private_key_path" {
   type    = string
   default = "tls/dev.key"
 }
+
+variable "rate_limit_max" {
+  type        = number
+  default     = 60
+  description = "Requests per window, per task. The shipped value is 60 per minute; a load test raises it to measure the service behind the limiter."
+}

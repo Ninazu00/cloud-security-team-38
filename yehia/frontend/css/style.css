@@ -405,7 +405,7 @@ input[type="password"]:focus {
 /* 36px per 30-min row -> 72px per hour so 1-hour blocks never clip room labels */
 .timetable-grid {
   display: grid;
-  grid-template-columns: 70px repeat(5, minmax(135px, 1fr));
+  grid-template-columns: 70px repeat(7, minmax(120px, 1fr));
   grid-template-rows: 40px repeat(20, 36px);
   border: 1px solid var(--border);
   border-radius: 8px;

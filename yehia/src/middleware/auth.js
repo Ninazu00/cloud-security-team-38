@@ -6,6 +6,7 @@ import { logEvent } from "./logger.js";
 
 const cachedKeys = new Map();
 let cachedDefaultKey = null;
+let lastJwksFetchAt = 0;
 
 function getAllowedRoles() {
   return new Set(
@@ -37,10 +38,13 @@ async function getPublicKey(kid) {
   if (kid && cachedKeys.has(kid)) return cachedKeys.get(kid);
   if (!kid && cachedDefaultKey) return cachedDefaultKey;
 
+  const cooldownMs = Number(process.env.JWKS_REFRESH_COOLDOWN_MS || 30000);
+  if (lastJwksFetchAt > 0 && Date.now() - lastJwksFetchAt < cooldownMs) throw new Error("No matching JWK (cooldown active)");
   const url = resolveJwksUrl();
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch public key (${res.status})`);
   const text = await res.text();
+  lastJwksFetchAt = Date.now();
 
   try {
     const parsed = JSON.parse(text);
@@ -67,6 +71,7 @@ async function getPublicKey(kid) {
 export function clearPublicKeyCache() {
   cachedKeys.clear();
   cachedDefaultKey = null;
+  lastJwksFetchAt = 0;
 }
 
 export async function requireAuth(req, res, next) {
@@ -80,7 +85,7 @@ export async function requireAuth(req, res, next) {
 
   const token = header.slice(7).trim();
   const isLive = (process.env.DEP_MODE || "mock") === "live";
-  const verifyOptions = { algorithms: ["RS256"] };
+  const verifyOptions = { algorithms: ["RS256"], clockTolerance: Number(process.env.JWT_CLOCK_TOLERANCE_SECONDS || 60) };
   const issuer = process.env.JWT_ISSUER || (isLive ? "class-tt" : undefined);
   const audience = process.env.JWT_AUDIENCE || (isLive ? "class-tt" : undefined);
   if (issuer) verifyOptions.issuer = issuer;

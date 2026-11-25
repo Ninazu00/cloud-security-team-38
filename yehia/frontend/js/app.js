@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu"];
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const START_HOUR = 8; // 08:00
   const END_HOUR = 18;  // 18:00
   const TOKEN_KEY = "tt_builder_jwt";

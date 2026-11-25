@@ -82,7 +82,7 @@ test("S2: forged JWT (wrong key) and expired JWT both return 401", async () => {
     publicKeyEncoding: { type: "spki", format: "pem" },
   });
   const forged = jwt.sign({ sub: "student-1", role: "admin" }, rogueKey, { algorithm: "RS256" });
-  const expired = mint("student-1", "student", "-10s");
+  const expired = mint("student-1", "student", "-120s");
 
   const r1 = await fetch(`${baseUrl}/api/timetables`, {
     headers: { Authorization: `Bearer ${forged}` },

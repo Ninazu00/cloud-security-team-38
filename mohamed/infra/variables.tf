@@ -56,7 +56,7 @@ variable "turnstile_secret" {
 
 variable "public_base_url" {
   type        = string
-  default     = "http://localhost:8080"
+  default     = "https://localhost:8443"
   description = "What the service puts in email links. Must be the URL a user can open."
 }
 
